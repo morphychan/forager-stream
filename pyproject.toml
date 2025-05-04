@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "forager-stream"
+version = "0.1.0"
+description = "Modular information collection framework"
+requires-python = ">=3.8"
+dependencies = [
+    "typer[all]",
+    "pyyaml",
+    "feedparser",
+    # add others as needed
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
