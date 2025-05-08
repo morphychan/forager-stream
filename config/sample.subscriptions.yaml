@@ -1,0 +1,13 @@
+# config/subscriptions.yaml
+
+# Global default fetch interval in seconds; can be overridden per subscription
+# default_interval: 300
+
+# List of RSS subscriptions
+# Sample:
+# feeds:
+#   - id: [unique id]
+#     name: [name]
+#     url: [url]
+#     interval: [interval]
+#     enabled: [true/false]
