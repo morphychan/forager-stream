@@ -1,13 +1,15 @@
 [build-system]
-requires = ["setuptools"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-name = "forager-stream"
+name = "forager"
 version = "0.1.0"
-description = "Modular information collection framework"
+description = "Information collection system"
 requires-python = ">=3.8"
 dependencies = [
+    "alembic>=1.13.1",
+    "sqlalchemy>=2.0.0",
     "typer[all]",
     "pyyaml",
     "feedparser",
@@ -19,3 +21,6 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
