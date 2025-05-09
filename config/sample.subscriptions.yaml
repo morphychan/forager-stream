@@ -9,5 +9,8 @@
 #   - id: [unique id]
 #     name: [name]
 #     url: [url]
-#     interval: [interval]
-#     enabled: [true/false]
+#     category: [category]
+#     tags: [tags]
+#     interval: [interval]    # Individual fetch interval in seconds
+#     enabled: [true/false]   # GUI can toggle this field to enable/disable the subscription
+
