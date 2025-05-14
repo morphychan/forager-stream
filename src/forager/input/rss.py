@@ -96,9 +96,14 @@ class RSSFetcher:
         articles = self.fetch()
         
         if articles:
-            # convert article format
+            # get existing articles
+            existing_articles = self.storage.get_articles(feed_id=feed_id)
+            existing_article_links = {article["link"] for article in existing_articles}
+
+            # get new articles
+            new_articles = [article for article in articles if article["link"] not in existing_article_links]
             db_articles = []
-            for article in articles:
+            for article in new_articles:
                 db_article = {
                     "title": article["title"],
                     "link": article["link"],
@@ -109,6 +114,10 @@ class RSSFetcher:
             
             # save articles
             article_ids = self.storage.save_articles(feed_id, db_articles)
+            if new_articles:
+                print(f"[INFO] Found {len(new_articles)} new articles out of {len(articles)} total")
+            else:
+                print(f"[INFO] No new articles found out of {len(articles)} total")
             return len(article_ids)
         return 0
 
