@@ -49,6 +49,13 @@ class RSSPresenter:
             return
 
         print(f"[INFO] Found {len(articles)} articles in the feed.")
+        
+        # print the first article's fields
+        if articles:
+            print("\nAvailable feed entry fields:")
+            print(", ".join(articles[0].keys()))
+            print("-" * 40)
+        
         for article in articles:
             self._print_article_summary(article, include_summary)
 
@@ -60,6 +67,9 @@ class RSSPresenter:
             article (Dict[str, str]): The article data to print.
             include_summary (bool): Whether to include the article summary.
         """
+        # print the current article's fields
+        print(f"Article fields: {', '.join(article.keys())}")
+        
         print(f"Title: {article['title']}")
         print(f"Link: {article['link']}")
         print(f"Published: {article['published']}")
