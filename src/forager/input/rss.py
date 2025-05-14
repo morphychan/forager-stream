@@ -3,6 +3,7 @@ from typing import List, Dict, Optional
 from pathlib import Path
 from forager.storage.sqlite import SQLiteStorage
 from forager.config.manager import ConfigManager, ConfigError
+from forager.input.preprocessor import URLPreprocessor
 
 class RSSFetcher:
     """Handles fetching, parsing and storing RSS feeds."""
@@ -44,6 +45,9 @@ class RSSFetcher:
             }
             articles.append(article)
 
+        # process all articles
+        articles = URLPreprocessor.process_articles(articles)
+
         return articles
 
     def ensure_default_category(self) -> int:
@@ -71,12 +75,12 @@ class RSSFetcher:
         if not self.storage:
             raise ValueError("Storage backend not initialized")
 
-        # 检查 feed 是否已存在
+        # check if the feed already exists  
         existing_feeds = self.storage.get_feeds()
         feed_exists = any(f["url"] == self.url for f in existing_feeds)
         
         if not feed_exists:
-            # 创建新的 feed
+            # create a new feed
             feed_id = self.storage.create_feed(
                 category_id=self.ensure_default_category(),
                 name=name,
@@ -85,14 +89,14 @@ class RSSFetcher:
                 status="active"
             )
         else:
-            # 获取已存在的 feed ID
+            # get the existing feed ID
             feed_id = next(f["id"] for f in existing_feeds if f["url"] == self.url)
         
-        # 获取文章
+        # fetch articles
         articles = self.fetch()
         
         if articles:
-            # 转换文章格式
+            # convert article format
             db_articles = []
             for article in articles:
                 db_article = {
@@ -103,7 +107,7 @@ class RSSFetcher:
                 }
                 db_articles.append(db_article)
             
-            # 保存文章
+            # save articles
             article_ids = self.storage.save_articles(feed_id, db_articles)
             return len(article_ids)
         return 0
@@ -130,11 +134,11 @@ class RSSFetcher:
                 article_count = fetcher.process_feed(feed.name, feed.interval)
                 results[feed.url] = article_count
             except Exception as e:
-                # 获取 feed ID 并更新错误状态
+                # get the feed ID and update the error status
                 existing_feeds = storage.get_feeds()
                 feed_id = next((f["id"] for f in existing_feeds if f["url"] == feed.url), None)
                 if feed_id:
                     storage.update_feed_error(feed_id, str(e))
-                results[feed.url] = -1  # 表示错误
+                results[feed.url] = -1  # -1 means error
         
         return results
