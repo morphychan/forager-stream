@@ -99,9 +99,7 @@ class RSSFetcher:
                     "title": article["title"],
                     "link": article["link"],
                     "published_at": article["published"],
-                    "status": "new",
-                    "summary": article.get("summary"),
-                    "content": article.get("content")
+                    "status": "new"
                 }
                 db_articles.append(db_article)
             
