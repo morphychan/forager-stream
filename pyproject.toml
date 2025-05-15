@@ -1,26 +1,26 @@
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [project]
-name = "forager"
+name = "forager-stream"
 version = "0.1.0"
-description = "Information collection system"
-requires-python = ">=3.8"
+description = "A flexible and extensible information collection system."
+authors = [
+    {name = "mchan",email = "mchen26@outlook.com"}
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.13"
 dependencies = [
-    "alembic>=1.13.1",
-    "sqlalchemy>=2.0.0",
-    "typer[all]",
-    "pyyaml",
-    "feedparser",
-    # add others as needed
+    "alembic (==1.15.2)",
+    "feedparser (==6.0.11)",
+    "python-dateutil (==2.9.0.post0)",
+    "pyyaml (==6.0.2)",
+    "requests (==2.32.3)",
+    "sqlalchemy (==2.0.41)",
+    "typer (==0.15.4)",
+    "urllib3 (==2.4.0)",
+    "uvicorn (==0.34.2)"
 ]
 
-[tool.setuptools]
-package-dir = {"" = "src"}
 
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.hatch.metadata]
-allow-direct-references = true
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
