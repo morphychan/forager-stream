@@ -7,6 +7,7 @@ Each submodule (e.g., input.py, run.py) should register its own commands.
 
 import typer
 from forager.cli import input as input_commands
+from forager.cli import api as api_commands
 
 # Root CLI app
 app = typer.Typer(
@@ -21,4 +22,10 @@ app.add_typer(
     input_commands.app,
     name="input",
     help="Run or test specific input plugins (e.g., RSS, API).",
+)
+
+app.add_typer(
+    api_commands.app,
+    name="api",
+    help="Run and manage the Forager API server.",
 )

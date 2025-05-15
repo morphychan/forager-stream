@@ -10,6 +10,9 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Optional, Any
 from datetime import datetime
 
+# Re-export SessionLocal for use in dependencies
+from src.forager.storage.database import SessionLocal
+
 
 class StorageError(Exception):
     """Base exception for storage-related errors."""
