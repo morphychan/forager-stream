@@ -111,8 +111,8 @@
     --shadow-elevation-1: 0 2px 8px rgba(80, 120, 200, 0.08);
     --shadow-elevation-2: 0 4px 16px rgba(80, 120, 200, 0.12);
     --radius: 12px;
-    --font-size-lg: 1.25rem;
-    --font-size-sm: 0.95rem;
+    --font-size-lg: 1.05rem;
+    --font-size-sm: 0.85rem;
     --font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans', Arial, sans-serif;
   }
 
@@ -243,5 +243,8 @@
       margin-bottom: 0.7rem;
       padding-bottom: 0.3rem;
     }
+  }
+  body {
+    font-size: 14px;
   }
 </style> 

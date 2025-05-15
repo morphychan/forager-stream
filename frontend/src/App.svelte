@@ -2,10 +2,25 @@
   import FeedList from './lib/FeedList.svelte';
   import ArticleList from './lib/ArticleList.svelte';
   import ArticleDetail from './lib/ArticleDetail.svelte';
+  import HeadlineMarquee from './lib/HeadlineMarquee.svelte';
+  import { fetchArticlesByFeed, fetchFeeds } from './lib/api';
   
   let selectedFeedId = null;
   let selectedArticle = null;
-  
+  let allArticles = [];
+
+  async function loadAllArticles() {
+    const feeds = await fetchFeeds();
+    let articles = [];
+    for (const feed of feeds) {
+      const feedArticles = await fetchArticlesByFeed(feed.id);
+      articles = articles.concat(feedArticles);
+    }
+    allArticles = articles.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+  }
+
+  loadAllArticles();
+
   function handleFeedSelect(event) {
     selectedFeedId = event.detail.feedId;
     selectedArticle = null;
@@ -17,6 +32,7 @@
 </script>
 
 <main>
+  <HeadlineMarquee articles={allArticles} />
   <div class="app-header">
     <h1>RSS 阅读器</h1>
   </div>

@@ -106,4 +106,8 @@
     font-size: 14px;
     margin-top: 8px;
   }
+  
+  body {
+    font-size: 14px;
+  }
 </style> 
