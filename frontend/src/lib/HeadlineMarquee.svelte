@@ -41,7 +41,7 @@
 .marquee-content {
   display: inline-block;
   white-space: nowrap;
-  animation: scroll-left 40s linear infinite;
+  animation: scroll-left 20s linear infinite;
   font-size: 1rem;
   min-width: 100%;
 }

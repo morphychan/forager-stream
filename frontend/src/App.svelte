@@ -10,13 +10,21 @@
   let allArticles = [];
 
   async function loadAllArticles() {
-    const feeds = await fetchFeeds();
+    let feeds = await fetchFeeds();
+    if (!Array.isArray(feeds)) feeds = [];
     let articles = [];
     for (const feed of feeds) {
-      const feedArticles = await fetchArticlesByFeed(feed.id);
-      articles = articles.concat(feedArticles);
+      let feedArticles = await fetchArticlesByFeed(feed.id);
+      if (!Array.isArray(feedArticles)) feedArticles = [];
+      articles.push(...feedArticles);
     }
+    // 过滤掉没有 id、title、published_at 的脏数据
+    articles = articles.filter(a => a && a.id && a.title && a.published_at);
+    // 按时间新到旧排序
     allArticles = articles.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+    // 调试输出
+    console.log('feeds:', feeds);
+    console.log('allArticles:', allArticles);
   }
 
   loadAllArticles();
