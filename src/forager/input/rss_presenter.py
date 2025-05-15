@@ -43,7 +43,7 @@ class RSSPresenter:
             include_summary (bool): Whether to include article summaries in the output.
                                   Defaults to False.
         """
-        articles = self.fetcher.fetch()
+        articles = self.fetcher.fetch(include_details=include_summary)
         if not articles:
             print("[WARNING] No articles found in the feed.")
             return
@@ -90,7 +90,7 @@ class RSSPresenter:
         Returns:
             Dict[str, int]: A dictionary containing feed statistics.
         """
-        articles = self.fetcher.fetch()
+        articles = self.fetcher.fetch(include_details=True)
         if not articles:
             print("[WARNING] No articles found in the feed.")
             return {"total_articles": 0}
@@ -142,7 +142,7 @@ class RSSPresenter:
             bool: True if the export was successful, False otherwise.
         """
         try:
-            articles = self.fetcher.fetch()
+            articles = self.fetcher.fetch(include_details=True)
             if not articles:
                 print("[WARNING] No articles to export.")
                 return False

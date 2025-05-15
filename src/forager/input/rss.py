@@ -29,15 +29,59 @@ class RSSFetcher:
         # if feed_parser is provided, use it, otherwise create a new one with the user_agent
         self.feed_parser = feed_parser or FeedParserAdapter.create_with_defaults(user_agent=user_agent)
 
-    def fetch(self) -> List[Dict[str, str]]:
+    def fetch_direct(self, include_details: bool = False) -> List[Dict[str, str]]:
         """
-        Fetch and parse the provided RSS feed.
+        Fetch and parse the provided RSS feed directly using feedparser without anti-scraping.
+        Useful for debugging or when anti-scraping measures are not needed.
+
+        Args:
+            include_details (bool): Whether to include summary and content in the results. Defaults to False.
 
         Returns:
             List[Dict[str, str]]: A list of dictionaries containing
             the title, link, and published date of each article in the feed.
         """
-        print(f"[INFO] Fetching RSS feed from: {self.url}")
+        print(f"[DEBUG] Directly fetching RSS feed from: {self.url}")
+        
+        # Use feedparser directly without anti-scraping
+        feed = feedparser.parse(self.url)
+
+        if not feed.entries:
+            print("[WARNING] No entries found in the feed.")
+            return []
+
+        articles = []
+        for entry in feed.entries:
+            article = {
+                "title": entry.title,
+                "link": entry.link,
+                "published": entry.published
+            }
+            
+            # Only include summary and content if requested
+            if include_details:
+                article["summary"] = entry.get("summary")
+                article["content"] = entry.get("content", [{}])[0].get("value") if entry.get("content") else None
+            
+            articles.append(article)
+
+        # process all articles
+        articles = URLPreprocessor.process_articles(articles)
+
+        return articles
+
+    def fetch_with_anti_scraping(self, include_details: bool = False) -> List[Dict[str, str]]:
+        """
+        Fetch and parse the provided RSS feed with anti-scraping measures.
+
+        Args:
+            include_details (bool): Whether to include summary and content in the results. Defaults to False.
+
+        Returns:
+            List[Dict[str, str]]: A list of dictionaries containing
+            the title, link, and published date of each article in the feed.
+        """
+        print(f"[INFO] Fetching RSS feed with anti-scraping from: {self.url}")
         
         # use the feed parser to parse the feed
         feed = self.feed_parser.parse(self.url)
@@ -51,16 +95,34 @@ class RSSFetcher:
             article = {
                 "title": entry.title,
                 "link": entry.link,
-                "published": entry.published,
-                "summary": entry.get("summary"),
-                "content": entry.get("content", [{}])[0].get("value") if entry.get("content") else None
+                "published": entry.published
             }
+            
+            # Only include summary and content if requested
+            if include_details:
+                article["summary"] = entry.get("summary")
+                article["content"] = entry.get("content", [{}])[0].get("value") if entry.get("content") else None
+            
             articles.append(article)
 
         # process all articles
         articles = URLPreprocessor.process_articles(articles)
 
         return articles
+        
+    def fetch(self, include_details: bool = False) -> List[Dict[str, str]]:
+        """
+        Fetch and parse the provided RSS feed using anti-scraping measures.
+        This is the default method that should be used in production.
+
+        Args:
+            include_details (bool): Whether to include summary and content in the results. Defaults to False.
+
+        Returns:
+            List[Dict[str, str]]: A list of dictionaries containing
+            the title, link, and published date of each article in the feed.
+        """
+        return self.fetch_with_anti_scraping(include_details)
 
     def ensure_default_category(self) -> int:
         """Ensure default category exists and return its ID."""
@@ -104,8 +166,8 @@ class RSSFetcher:
             # get the existing feed ID
             feed_id = next(f["id"] for f in existing_feeds if f["url"] == self.url)
         
-        # fetch articles
-        articles = self.fetch()
+        # fetch articles - we don't need summary or content for database storage
+        articles = self.fetch(include_details=False)
         
         if articles:
             # get existing articles
