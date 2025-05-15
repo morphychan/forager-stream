@@ -7,10 +7,9 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-# Import routers
+# Import routers 
 from api.routers.rss_feeds import router as rss_feeds_router
-from routers.feeds import router as feeds_router
-from routers.articles import router as articles_router
+from api.routers.rss_articles import router as rss_articles_router
 
 # Environment configuration
 API_VERSION = os.getenv("API_VERSION", "0.1.0")
@@ -59,21 +58,17 @@ async def general_exception_handler(request: Request, exc: Exception):
         content={"error": "Internal server error", "detail": str(exc) if ENVIRONMENT == "development" else None},
     )
 
-# Include routers for feed and article endpoints
-app.include_router(
-    feeds_router,
-    prefix="/feeds",
-    tags=["feeds"],
-)
-app.include_router(
-    articles_router,
-    prefix="/articles",
-    tags=["articles"],
-)
+# register rss feeds router
 app.include_router(
     rss_feeds_router,
     prefix="/rss-feeds",
     tags=["rss-feeds"],
+)
+# register rss articles router
+app.include_router(
+    rss_articles_router,
+    prefix="/rss-articles",
+    tags=["rss-articles"],
 )
 
 @app.get("/", summary="Health check endpoint")
