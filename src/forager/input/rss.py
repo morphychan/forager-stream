@@ -2,10 +2,12 @@ from email.utils import parsedate_to_datetime
 import feedparser
 from typing import List, Dict, Optional
 from pathlib import Path
+import datetime
 from forager.storage.sqlite import SQLiteStorage
 from forager.config.manager import ConfigManager, ConfigError
 from forager.input.preprocessor import URLPreprocessor
 from forager.utils.feed_parser_adapter import FeedParserAdapter
+from forager.utils.date_utils import parse_date_flexible
 
 class RSSFetcher:
     """Handles fetching, parsing and storing RSS feeds."""
@@ -133,32 +135,55 @@ class RSSFetcher:
         print(f"[INFO] Fetching RSS feed with anti-scraping from: {self.url}")
         
         # use the feed parser to parse the feed
-        feed = self.feed_parser.parse(self.url)
-
-        if not feed.entries:
-            print("[WARNING] No entries found in the feed.")
+        try:
+            if self.debug:
+                print(f"[DEBUG] Using feed_parser with anti-scraping for: {self.url}")
+            feed = self.feed_parser.parse(self.url, debug=self.debug)
+            
+            if not feed.entries:
+                print("[WARNING] No entries found in the feed.")
+                return []
+            
+            if self.debug:
+                print(f"[DEBUG] Processing {len(feed.entries)} entries from feed")
+            
+            articles = []
+            for entry in feed.entries:
+                try:
+                    if self.debug and hasattr(entry, 'title') and hasattr(entry, 'link'):
+                        print(f"[DEBUG] Processing entry: {entry.title[:50]}... ({entry.link})")
+                    
+                    article = {
+                        "title": entry.title,
+                        "link": entry.link,
+                        "published": entry.published
+                    }
+                    
+                    # Only include summary and content if requested
+                    if include_details:
+                        article["summary"] = entry.get("summary")
+                        article["content"] = entry.get("content", [{}])[0].get("value") if entry.get("content") else None
+                    
+                    articles.append(article)
+                except Exception as e:
+                    if self.debug:
+                        print(f"[DEBUG] Error processing entry: {str(e)}")
+                        if hasattr(entry, 'link'):
+                            print(f"[DEBUG] Problem entry link: {entry.link}")
+            
+            # process all articles
+            if self.debug:
+                print(f"[DEBUG] Preprocessing {len(articles)} articles with URLPreprocessor")
+            articles = URLPreprocessor.process_articles(articles)
+            
+            return articles
+        except Exception as e:
+            print(f"[ERROR] Failed to fetch feed with anti-scraping: {str(e)}")
+            if self.debug:
+                import traceback
+                print(f"[DEBUG] Error traceback:\n{traceback.format_exc()}")
             return []
 
-        articles = []
-        for entry in feed.entries:
-            article = {
-                "title": entry.title,
-                "link": entry.link,
-                "published": entry.published
-            }
-            
-            # Only include summary and content if requested
-            if include_details:
-                article["summary"] = entry.get("summary")
-                article["content"] = entry.get("content", [{}])[0].get("value") if entry.get("content") else None
-            
-            articles.append(article)
-
-        # process all articles
-        articles = URLPreprocessor.process_articles(articles)
-
-        return articles
-        
     def fetch(self, include_details: bool = False) -> List[Dict[str, str]]:
         """
         Fetch and parse the provided RSS feed using anti-scraping measures.
@@ -202,51 +227,115 @@ class RSSFetcher:
         if not self.storage:
             raise ValueError("Storage backend not initialized")
 
-        # check if the feed already exists  
-        existing_feeds = self.storage.get_feeds()
-        feed_exists = any(f["url"] == self.url for f in existing_feeds)
-        
-        if not feed_exists:
-            # create a new feed
-            feed_id = self.storage.create_feed(
-                category_id=self.ensure_default_category(),
-                name=name,
-                url=self.url,
-                poll_interval=interval,
-                status="active"
-            )
-        else:
-            # get the existing feed ID
-            feed_id = next(f["id"] for f in existing_feeds if f["url"] == self.url)
-        
-        # fetch articles - we don't need summary or content for database storage
-        articles = self.fetch(include_details=False)
-        
-        if articles:
-            # get existing articles
-            existing_articles = self.storage.get_articles(feed_id=feed_id)
-            existing_article_links = {article["link"] for article in existing_articles}
-
-            # get new articles
-            new_articles = [article for article in articles if article["link"] not in existing_article_links]
-            db_articles = []
-            for article in new_articles:
-                db_article = {
-                    "title": article["title"],
-                    "link": article["link"],
-                    "published_at": parsedate_to_datetime(article["published"]),
-                    "status": "new"
-                }
-                db_articles.append(db_article)
+        try:
+            # check if the feed already exists  
+            if self.debug:
+                print(f"[DEBUG] Checking if feed exists: {self.url}")
+            existing_feeds = self.storage.get_feeds()
+            feed_exists = any(f["url"] == self.url for f in existing_feeds)
             
-            # save articles
-            article_ids = self.storage.save_articles(feed_id, db_articles)
-            if new_articles:
-                print(f"[INFO] Found {len(new_articles)} new articles out of {len(articles)} total")
+            if not feed_exists:
+                # create a new feed
+                if self.debug:
+                    print(f"[DEBUG] Creating new feed in database: {self.url}")
+                try:
+                    category_id = self.ensure_default_category()
+                    if self.debug:
+                        print(f"[DEBUG] Using category ID: {category_id}")
+                    feed_id = self.storage.create_feed(
+                        category_id=category_id,
+                        name=name,
+                        url=self.url,
+                        poll_interval=interval,
+                        status="active"
+                    )
+                    if self.debug:
+                        print(f"[DEBUG] Created feed with ID: {feed_id}")
+                except Exception as e:
+                    print(f"[ERROR] Failed to create feed in database: {str(e)}")
+                    raise
             else:
-                print(f"[INFO] No new articles found out of {len(articles)} total")
-            return len(article_ids)
-        return 0
+                # get the existing feed ID
+                if self.debug:
+                    print(f"[DEBUG] Feed already exists: {self.url}")
+                try:
+                    feed_id = next(f["id"] for f in existing_feeds if f["url"] == self.url)
+                    if self.debug:
+                        print(f"[DEBUG] Using existing feed ID: {feed_id}")
+                except Exception as e:
+                    print(f"[ERROR] Failed to get existing feed ID: {str(e)}")
+                    raise
+            
+            # fetch articles - we don't need summary or content for database storage
+            if self.debug:
+                print(f"[DEBUG] Fetching articles for database storage")
+            articles = self.fetch(include_details=False)
+            
+            if articles:
+                # get existing articles
+                if self.debug:
+                    print(f"[DEBUG] Getting existing articles for feed ID: {feed_id}")
+                try:
+                    existing_articles = self.storage.get_articles(feed_id=feed_id)
+                    existing_article_links = {article["link"] for article in existing_articles}
+                    if self.debug:
+                        print(f"[DEBUG] Found {len(existing_article_links)} existing articles")
+                except Exception as e:
+                    print(f"[ERROR] Failed to get existing articles: {str(e)}")
+                    raise
+
+                # get new articles
+                new_articles = [article for article in articles if article["link"] not in existing_article_links]
+                if self.debug:
+                    print(f"[DEBUG] Found {len(new_articles)} new articles out of {len(articles)} total")
+                
+                db_articles = []
+                for article in new_articles:
+                    try:
+                        if self.debug:
+                            print(f"[DEBUG] Parsing date: {article['published']}")
+                        published_dt = parse_date_flexible(article["published"])
+                        if self.debug:
+                            print(f"[DEBUG] Parsed date: {article['published']} -> {published_dt}")
+                        db_article = {
+                            "title": article["title"],
+                            "link": article["link"],
+                            "published_at": published_dt,
+                            "status": "new"
+                        }
+                        db_articles.append(db_article)
+                    except Exception as e:
+                        print(f"[ERROR] Failed to process article {article['link']}: {str(e)}")
+                        # Continue with other articles instead of failing completely
+                
+                # save articles
+                if db_articles:
+                    if self.debug:
+                        print(f"[DEBUG] Saving {len(db_articles)} articles to database")
+                    try:
+                        article_ids = self.storage.save_articles(feed_id, db_articles)
+                        saved_count = len(article_ids)
+                        if self.debug:
+                            print(f"[DEBUG] Successfully saved {saved_count} new articles (skipped {len(db_articles) - saved_count} duplicates)")
+                            if article_ids:
+                                print(f"[DEBUG] Article IDs: {article_ids}")
+                    except Exception as e:
+                        print(f"[ERROR] Failed to save articles to database: {str(e)}")
+                        raise
+                else:
+                    if self.debug:
+                        print("[DEBUG] No new articles to save")
+                    article_ids = []
+                
+                if article_ids:
+                    print(f"[INFO] Saved {len(article_ids)} articles from {self.url}")
+                else:
+                    print(f"[INFO] No new articles found in {self.url}")
+                return len(article_ids)
+            return 0
+        except Exception as e:
+            print(f"[ERROR] Exception in process_feed: {str(e)}")
+            raise
 
     @classmethod
     def process_feeds_from_config(cls, config_path: Path, storage: SQLiteStorage, user_agent: Optional[str] = None, debug: bool = False) -> Dict[str, int]:
@@ -262,24 +351,60 @@ class RSSFetcher:
         Returns:
             Dict[str, int]: Dictionary mapping feed URLs to number of articles saved
         """
-        config_manager = ConfigManager(config_path)
-        feeds = config_manager.get_enabled_feeds()
+        if debug:
+            print(f"[DEBUG] Loading feeds from config: {config_path}")
         
-        # create a shared feed parser to reuse the HTTP session
-        feed_parser = FeedParserAdapter.create_with_defaults(user_agent=user_agent)
-        
-        results = {}
-        for feed in feeds:
-            try:
-                fetcher = cls(feed.url, storage, feed_parser=feed_parser, debug=debug)
-                article_count = fetcher.process_feed(feed.name, feed.interval)
-                results[feed.url] = article_count
-            except Exception as e:
-                # get the feed ID and update the error status
-                existing_feeds = storage.get_feeds()
-                feed_id = next((f["id"] for f in existing_feeds if f["url"] == feed.url), None)
-                if feed_id:
-                    storage.update_feed_error(feed_id, str(e))
-                results[feed.url] = -1  # -1 means error
-        
-        return results
+        try:
+            config_manager = ConfigManager(config_path)
+            feeds = config_manager.get_enabled_feeds()
+            
+            if debug:
+                print(f"[DEBUG] Found {len(feeds)} enabled feeds in config")
+                for i, feed in enumerate(feeds):
+                    print(f"[DEBUG] Feed {i+1}: {feed.name} - {feed.url}")
+            
+            # create a shared feed parser to reuse the HTTP session
+            if debug:
+                print("[DEBUG] Creating shared feed parser")
+            feed_parser = FeedParserAdapter.create_with_defaults(user_agent=user_agent)
+            
+            results = {}
+            for i, feed in enumerate(feeds):
+                if debug:
+                    print(f"\n[DEBUG] Processing feed {i+1}/{len(feeds)}: {feed.name} ({feed.url})")
+                try:
+                    fetcher = cls(feed.url, storage, feed_parser=feed_parser, debug=debug)
+                    article_count = fetcher.process_feed(feed.name, feed.interval)
+                    results[feed.url] = article_count
+                except Exception as e:
+                    print(f"[ERROR] Failed to process feed {feed.url}: {e}")
+                    # Try to get more details about the error
+                    if debug:
+                        import traceback
+                        print(f"[DEBUG] Error traceback:\n{traceback.format_exc()}")
+                    
+                    # get the feed ID and update the error status
+                    try:
+                        if debug:
+                            print(f"[DEBUG] Updating error status for feed: {feed.url}")
+                        existing_feeds = storage.get_feeds()
+                        feed_id = next((f["id"] for f in existing_feeds if f["url"] == feed.url), None)
+                        if feed_id:
+                            if debug:
+                                print(f"[DEBUG] Updating error status for feed ID: {feed_id}")
+                            storage.update_feed_error(feed_id, str(e))
+                        else:
+                            if debug:
+                                print(f"[DEBUG] Feed not found in database to update error status: {feed.url}")
+                    except Exception as update_error:
+                        print(f"[ERROR] Failed to update error status: {update_error}")
+                    
+                    results[feed.url] = -1  # -1 means error
+            
+            return results
+        except Exception as e:
+            print(f"[ERROR] Failed to process feeds from config: {e}")
+            import traceback
+            if debug:
+                print(f"[DEBUG] Error traceback:\n{traceback.format_exc()}")
+            return {}

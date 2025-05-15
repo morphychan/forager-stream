@@ -438,7 +438,7 @@ class SQLiteStorage(BaseStorage):
                 for article in articles:
                     cursor.execute(
                         """
-                        INSERT INTO rss_articles 
+                        INSERT OR IGNORE INTO rss_articles 
                         (feed_id, title, link, published_at, status, summary, content, manual_labels)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         """,
@@ -453,7 +453,8 @@ class SQLiteStorage(BaseStorage):
                             json.dumps(article.get("manual_labels")) if article.get("manual_labels") else None
                         )
                     )
-                    article_ids.append(cursor.lastrowid)
+                    if cursor.lastrowid:
+                        article_ids.append(cursor.lastrowid)
                 conn.commit()
                 return article_ids
         except sqlite3.Error as e:

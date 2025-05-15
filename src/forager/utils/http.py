@@ -188,26 +188,48 @@ class HttpClient:
             elif method == "post":
                 strategy.post_request()
     
-    def get(self, url: str, headers: Optional[Dict[str, str]] = None, **kwargs) -> requests.Response:
+    def get(self, url: str, headers: Optional[Dict[str, str]] = None, debug: bool = False, **kwargs) -> requests.Response:
         """
         Make a GET request with anti-scraping measures.
         
         Args:
             url: URL to request.
             headers: Additional headers to send.
+            debug: Whether to print debug information during the request.
             **kwargs: Additional arguments to pass to requests.get.
             
         Returns:
             Response object.
         """
+        if debug:
+            print(f"[DEBUG] HTTP GET: {url}")
+            
         prepared_headers = self._prepare_headers(headers)
         
+        if debug:
+            print(f"[DEBUG] Request headers: {prepared_headers}")
+        
         # Pre-request strategies
+        if debug:
+            print("[DEBUG] Executing pre-request strategies")
         self._execute_strategies("pre")
         
-        response = self.session.get(url, headers=prepared_headers, **kwargs)
+        try:
+            if debug:
+                print("[DEBUG] Sending request...")
+            response = self.session.get(url, headers=prepared_headers, **kwargs)
+            if debug:
+                print(f"[DEBUG] Response status: {response.status_code}")
+                print(f"[DEBUG] Response headers: {dict(response.headers)}")
+                print(f"[DEBUG] Response size: {len(response.content)} bytes")
+        except Exception as e:
+            if debug:
+                print(f"[DEBUG] Request failed: {str(e)}")
+            raise
         
         # Post-request strategies
+        if debug:
+            print("[DEBUG] Executing post-request strategies")
         self._execute_strategies("post")
         
         return response
