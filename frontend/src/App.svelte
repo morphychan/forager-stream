@@ -1,150 +1,170 @@
 <script>
+  import { onMount } from 'svelte';
   import FeedList from './lib/FeedList.svelte';
   import ArticleList from './lib/ArticleList.svelte';
   import ArticleDetail from './lib/ArticleDetail.svelte';
   import HeadlineMarquee from './lib/HeadlineMarquee.svelte';
-  import { fetchArticlesByFeed, fetchFeeds } from './lib/api';
-  
+
   let selectedFeedId = null;
   let selectedArticle = null;
-  let allArticles = [];
+  let rawArticles = [];
+  let loading = false;
+  let error = null;
 
   async function loadAllArticles() {
-    let feeds = await fetchFeeds();
-    if (!Array.isArray(feeds)) feeds = [];
-    let articles = [];
-    for (const feed of feeds) {
-      let feedArticles = await fetchArticlesByFeed(feed.id);
-      if (!Array.isArray(feedArticles)) feedArticles = [];
-      articles.push(...feedArticles);
+    loading = true;
+    error = null;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch('/rss-articles', { signal: controller.signal });
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
+      const text = await res.text();
+      console.log('response api text:', text);
+      try {
+        rawArticles = JSON.parse(text);
+      } catch {
+        throw new Error('Invalid JSON response');
+      }
+    } catch (e) {
+      if (e.name === 'AbortError') {
+        error = 'Request timed out, please try again later';
+      } else {
+        error = e.message;
+      }
+    } finally {
+      loading = false;
+      clearTimeout(timeoutId);
     }
-    // 过滤掉没有 id、title、published_at 的脏数据
-    articles = articles.filter(a => a && a.id && a.title && a.published_at);
-    // 按时间新到旧排序
-    allArticles = articles.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
-    // 调试输出
-    console.log('feeds:', feeds);
-    console.log('allArticles:', allArticles);
   }
 
-  loadAllArticles();
+  onMount(loadAllArticles);
+
+  $: allArticles = rawArticles
+    .filter(a => a?.id && a.title && a.published_at)
+    .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
 
   function handleFeedSelect(event) {
     selectedFeedId = event.detail.feedId;
     selectedArticle = null;
   }
-  
+
   function handleArticleSelect(event) {
     selectedArticle = event.detail.article;
   }
 </script>
 
 <main>
-  <HeadlineMarquee articles={allArticles} />
-  <div class="app-header">
-    <h1>RSS 阅读器</h1>
-  </div>
-  
-  <div class="app-container">
-    <div class="sidebar">
+  <header class="header">
+    <h1>RSS Reader</h1>
+  </header>
+
+  <section class="marquee-container">
+    {#if loading}
+      <div class="skeleton-marquee"></div>
+    {:else}
+      {#if error}
+        <div class="marquee-error">Marquee load error: {error}</div>
+      {/if}
+      <HeadlineMarquee articles={allArticles} />
+    {/if}
+  </section>
+
+  <div class="layout">
+    <aside class="sidebar">
       <FeedList on:select={handleFeedSelect} />
-    </div>
-    
-    <div class="content">
-      <div class="article-list-section">
-        <ArticleList feedId={selectedFeedId} on:select={handleArticleSelect} />
+    </aside>
+    <section class="main-content">
+      <div class="article-list">
+        <ArticleList
+          feedId={selectedFeedId}
+          on:select={handleArticleSelect}
+        />
       </div>
-      
-      <div class="article-detail-section">
+      <div class="article-detail">
         <ArticleDetail article={selectedArticle} />
       </div>
-    </div>
+    </section>
   </div>
 </main>
 
 <style>
+  :root {
+    --color-bg: #fafafa;
+    --color-surface: #ffffff;
+    --color-primary: #4a90e2;
+    --color-on-primary: #ffffff;
+    --color-text: #333333;
+    --color-muted: #777777;
+    --color-border: #e0e0e0;
+    --radius: 8px;
+    --spacing: 16px;
+  }
+
   :global(body) {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
     margin: 0;
-    padding: 0;
-    background-color: #f8f9fa;
-    color: #212529;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
   }
-  
-  main {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    max-width: 100%;
-    margin: 0 auto;
+
+  main { display: flex; flex-direction: column; height: 100vh; }
+  .header {
+    position: sticky; top: 0;
+    background: var(--color-surface);
+    padding: var(--spacing);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 10;
   }
-  
-  .app-header {
-    background-color: #007bff;
-    color: white;
-    padding: 0.5rem 1rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  .header h1 { margin: 0; color: var(--color-primary); font-size: 1.75rem; }
+
+  .marquee-container {
+    position: sticky; top: 64px;
+    background: var(--color-surface);
+    padding: var(--spacing);
+    border-bottom: 1px solid var(--color-border);
+    z-index: 9;
   }
-  
-  .app-header h1 {
-    margin: 0;
-    font-size: 1.5rem;
+  .marquee-error {
+    color: #d32f2f;
+    margin-bottom: var(--spacing);
+    text-align: center;
   }
-  
-  .app-container {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-  }
-  
+
+  .layout { flex: 1; display: flex; overflow: hidden; }
   .sidebar {
-    width: 250px;
-    background-color: white;
-    border-right: 1px solid #dee2e6;
-    height: 100%;
+    width: 260px;
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    padding: var(--spacing);
     overflow-y: auto;
   }
-  
-  .content {
-    flex: 1;
-    display: flex;
-    overflow: hidden;
-  }
-  
-  .article-list-section {
-    width: 350px;
-    border-right: 1px solid #dee2e6;
-    background-color: white;
-    height: 100%;
+  .main-content { flex: 1; display: flex; overflow: hidden; }
+
+  .article-list,
+  .article-detail {
+    background: var(--color-surface);
+    margin: var(--spacing);
+    border-radius: var(--radius);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     overflow-y: auto;
   }
-  
-  .article-detail-section {
-    flex: 1;
-    background-color: white;
-    height: 100%;
-    overflow-y: auto;
+  .article-list { width: 320px; padding: var(--spacing); }
+  .article-detail { flex: 1; padding: var(--spacing); }
+
+  .skeleton-marquee {
+    height: 2rem;
+    background: var(--color-border);
+    border-radius: var(--radius);
+    animation: pulse 1.5s infinite;
   }
-  
+  @keyframes pulse { 0%{opacity:1;}50%{opacity:0.4;}100%{opacity:1;} }
+
   @media (max-width: 1024px) {
-    .app-container {
-      flex-direction: column;
-    }
-    
-    .sidebar {
-      width: 100%;
-      height: auto;
-      max-height: 200px;
-    }
-    
-    .content {
-      flex-direction: column;
-    }
-    
-    .article-list-section {
-      width: 100%;
-      height: auto;
-      max-height: 300px;
-    }
+    .layout { flex-direction: column; }
+    .sidebar { width: 100%; max-height: 200px; }
+    .main-content { flex-direction: column; }
+    .article-list { width: 100%; max-height: 300px; }
+    .article-detail { margin: var(--spacing) 0; }
   }
 </style>
