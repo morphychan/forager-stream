@@ -11,9 +11,11 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # Get database URL from environment variable, or use a default SQLite database path
+BASE_DIR = Path(__file__).resolve().parents[3]
+default_db_path = BASE_DIR / "data" / "forager.db"
 DATABASE_URL = os.environ.get(
     "DATABASE_URL", 
-    f"sqlite:///{Path.home() / '.forager' / 'forager.db'}"
+    f"sqlite:///{default_db_path}"
 )
 
 print(f"[DATABASE] Initializing database connection with URL: {DATABASE_URL}")

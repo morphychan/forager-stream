@@ -1,3 +1,4 @@
+from email.utils import parsedate_to_datetime
 import feedparser
 from typing import List, Dict, Optional
 from pathlib import Path
@@ -107,7 +108,7 @@ class RSSFetcher:
                 db_article = {
                     "title": article["title"],
                     "link": article["link"],
-                    "published_at": article["published"],
+                    "published_at": parsedate_to_datetime(article["published"]),
                     "status": "new"
                 }
                 db_articles.append(db_article)
