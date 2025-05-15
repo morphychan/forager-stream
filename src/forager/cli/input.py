@@ -35,6 +35,12 @@ def rss(
         "-p",
         help="Only print feed contents without storing to database.",
     ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        "-d",
+        help="Use debug mode to show detailed information during fetching.",
+    ),
 ) -> None:
     """
     Fetch and store RSS feeds.
@@ -43,7 +49,7 @@ def rss(
         # Print-only mode
         if url:
             try:
-                fetcher = RSSFetcher(url)
+                fetcher = RSSFetcher(url, debug=debug)
                 presenter = RSSPresenter(fetcher)
                 presenter.print_feed_summary()
             except Exception as e:
@@ -55,7 +61,7 @@ def rss(
                 urls = config_manager.get_feed_urls()
                 for url in urls:
                     try:
-                        fetcher = RSSFetcher(url)
+                        fetcher = RSSFetcher(url, debug=debug)
                         presenter = RSSPresenter(fetcher)
                         presenter.print_feed_summary()
                     except Exception as e:
@@ -71,7 +77,7 @@ def rss(
             if url:
                 # Process single feed
                 try:
-                    fetcher = RSSFetcher(url, storage)
+                    fetcher = RSSFetcher(url, storage, debug=debug)
                     article_count = fetcher.process_feed(url, 3600)  # Default 1 hour interval
                     if article_count > 0:
                         typer.echo(f"[INFO] Saved {article_count} articles from {url}")
@@ -81,7 +87,11 @@ def rss(
                     typer.echo(f"[ERROR] Failed to process feed {url}: {e}")
             else:
                 # Process all feeds from config
-                results = RSSFetcher.process_feeds_from_config(config_path, storage)
+                if debug:
+                    typer.echo("[INFO] Debug mode active - detailed information will be shown")
+                
+                # Modified to pass debug parameter
+                results = RSSFetcher.process_feeds_from_config(config_path, storage, debug=debug)
                 
                 # Display results
                 for feed_url, count in results.items():

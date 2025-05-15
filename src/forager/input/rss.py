@@ -14,7 +14,8 @@ class RSSFetcher:
                  url: str, 
                  storage: Optional[SQLiteStorage] = None, 
                  feed_parser: Optional[FeedParserAdapter] = None, 
-                 user_agent: Optional[str] = None):
+                 user_agent: Optional[str] = None,
+                 debug: bool = False):
         """
         Initialize with the URL of the RSS feed.
 
@@ -23,11 +24,13 @@ class RSSFetcher:
             storage (Optional[SQLiteStorage]): Storage backend for persisting feeds and articles.
             feed_parser (Optional[FeedParserAdapter]): Feed parser with anti-scraping capabilities.
             user_agent (Optional[str]): Specific User-Agent to use for creating a new feed_parser if one isn't provided.
+            debug (bool): Whether to use debug mode for fetching.
         """
         self.url = url
         self.storage = storage
         # if feed_parser is provided, use it, otherwise create a new one with the user_agent
         self.feed_parser = feed_parser or FeedParserAdapter.create_with_defaults(user_agent=user_agent)
+        self.debug = debug
 
     def fetch_direct(self, include_details: bool = False) -> List[Dict[str, str]]:
         """
@@ -69,6 +72,52 @@ class RSSFetcher:
         articles = URLPreprocessor.process_articles(articles)
 
         return articles
+
+    def fetch_direct_debug(self, include_details: bool = False) -> List[Dict[str, str]]:
+        """
+        Like fetch_direct, but with detailed debug output to the console.
+        """
+        print(f"[DEBUG] Directly fetching RSS feed from: {self.url}")
+        
+        feed = feedparser.parse(self.url)
+        print(f"[DEBUG] bozo flag: {feed.bozo}")
+        if feed.bozo:
+            print(f"[DEBUG] bozo_exception: {feed.bozo_exception!r}")
+        headers = getattr(feed, 'headers', None)
+        if headers:
+            print(f"[DEBUG] Content-Type: {headers.get('content-type')}")
+        
+        if not feed.entries:
+            print("[WARNING] No entries found in the feed.")
+            return []
+
+        print(f"[DEBUG] Found {len(feed.entries)} entries; showing first 3:")
+        for entry in feed.entries[:3]:
+            print(f"  ▶ title: {entry.get('title')!r}")
+            print(f"    link: {entry.get('link')}")
+            print(f"    published: {entry.get('published', 'N/A')}")
+            if include_details:
+                print(f"    summary: {entry.get('summary')!r}")
+                content = entry.get("content", [{}])
+                content_value = content[0].get('value') if content else 'N/A'
+                print(f"    content: {content_value!r}")
+
+        articles = []
+        for entry in feed.entries:
+            article = {
+                "title": entry.title,
+                "link": entry.link,
+                "published": entry.published
+            }
+            if include_details:
+                article["summary"] = entry.get("summary")
+                article["content"] = (
+                    entry.get("content", [{}])[0].get("value")
+                    if entry.get("content") else None
+                )
+            articles.append(article)
+
+        return URLPreprocessor.process_articles(articles)
 
     def fetch_with_anti_scraping(self, include_details: bool = False) -> List[Dict[str, str]]:
         """
@@ -122,7 +171,11 @@ class RSSFetcher:
             List[Dict[str, str]]: A list of dictionaries containing
             the title, link, and published date of each article in the feed.
         """
-        return self.fetch_with_anti_scraping(include_details)
+        if self.debug:
+            print("[DEBUG] Using direct debug mode for fetching")
+            return self.fetch_direct_debug(include_details)
+        else:
+            return self.fetch_with_anti_scraping(include_details)
 
     def ensure_default_category(self) -> int:
         """Ensure default category exists and return its ID."""
@@ -196,7 +249,7 @@ class RSSFetcher:
         return 0
 
     @classmethod
-    def process_feeds_from_config(cls, config_path: Path, storage: SQLiteStorage, user_agent: Optional[str] = None) -> Dict[str, int]:
+    def process_feeds_from_config(cls, config_path: Path, storage: SQLiteStorage, user_agent: Optional[str] = None, debug: bool = False) -> Dict[str, int]:
         """
         Process all feeds from config file.
 
@@ -204,6 +257,7 @@ class RSSFetcher:
             config_path (Path): Path to the config file
             storage (SQLiteStorage): Storage backend
             user_agent (Optional[str]): Custom User-Agent to use for all requests
+            debug (bool): Whether to use debug mode for fetching
 
         Returns:
             Dict[str, int]: Dictionary mapping feed URLs to number of articles saved
@@ -217,7 +271,7 @@ class RSSFetcher:
         results = {}
         for feed in feeds:
             try:
-                fetcher = cls(feed.url, storage, feed_parser=feed_parser)
+                fetcher = cls(feed.url, storage, feed_parser=feed_parser, debug=debug)
                 article_count = fetcher.process_feed(feed.name, feed.interval)
                 results[feed.url] = article_count
             except Exception as e:

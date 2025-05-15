@@ -44,6 +44,7 @@ class RSSPresenter:
                                   Defaults to False.
         """
         articles = self.fetcher.fetch(include_details=include_summary)
+            
         if not articles:
             print("[WARNING] No articles found in the feed.")
             return
