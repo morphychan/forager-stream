@@ -174,3 +174,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# Node modules
+frontend/node_modules/
+
+# Vite build output
+frontend/dist/

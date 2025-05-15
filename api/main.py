@@ -28,6 +28,7 @@ app = FastAPI(
 origins = [
     "http://localhost",
     "http://localhost:3000",
+    "http://192.168.41.31:5173",
 ]
 
 # Add production origins if configured
