@@ -67,8 +67,8 @@
             class="article-item {selectedArticleId === article.id ? 'selected' : ''}"
             on:click={() => selectArticle(article.id)}
           >
-            <h3 class="article-title">{article.title}</h3>
-            <div class="article-meta">
+            <div class="article-title-row">
+              <h3 class="article-title">{article.title}</h3>
               <span class="article-date">{formatDate(article.published_at)}</span>
             </div>
             {#if article.summary}
@@ -97,8 +97,8 @@
             class="article-item {selectedArticleId === article.id ? 'selected' : ''}"
             on:click={() => selectArticle(article.id)}
           >
-            <h3 class="article-title">{article.title}</h3>
-            <div class="article-meta">
+            <div class="article-title-row">
+              <h3 class="article-title">{article.title}</h3>
               <span class="article-date">{formatDate(article.published_at)}</span>
             </div>
             {#if article.summary}
@@ -181,8 +181,16 @@
     border-color: #4f8cff;
     box-shadow: 0 4px 16px rgba(80, 120, 200, 0.16);
   }
+  .article-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    margin-bottom: 0;
+    justify-content: flex-start;
+    min-width: 0;
+  }
   .article-title {
-    margin: 0 0 0.5rem 0;
+    margin: 0;
     font-size: var(--font-size-lg);
     font-weight: 600;
     color: var(--color-text-primary);
@@ -190,13 +198,15 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 0 1 auto;
+    min-width: 0;
   }
-  .article-meta {
-    display: flex;
+  .article-date {
     color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    margin-bottom: 0.5rem;
-    gap: 1.2rem;
+    font-size: 0.75em;
+    margin-left: 0.5em;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
   .article-summary {
     margin: 0;
