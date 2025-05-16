@@ -206,8 +206,8 @@
   }
 
   .article-container {
-    height: 100%;
-    overflow-y: auto;
+    /* height: 100%; */
+    /* overflow-y: auto; */
     padding: 1.2rem 1.2rem 1.2rem 1.2rem;
     background: var(--color-surface);
     font-family: var(--font-family);

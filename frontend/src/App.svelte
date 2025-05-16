@@ -166,7 +166,7 @@
     margin: var(--spacing);
     border-radius: var(--radius);
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    overflow-y: auto;
+    /* overflow-y: auto; */
   }
   .article-list { width: 320px; padding: var(--spacing); }
   .article-detail { flex: 1; padding: var(--spacing); }
