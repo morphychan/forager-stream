@@ -4,12 +4,15 @@
   import ArticleList from './lib/ArticleList.svelte';
   import ArticleDetail from './lib/ArticleDetail.svelte';
   import HeadlineMarquee from './lib/HeadlineMarquee.svelte';
+  import { fetchFeeds } from './lib/api';
 
   let selectedFeedId = null;
   let selectedArticle = null;
   let rawArticles = [];
   let loading = false;
   let error = null;
+  let feeds = [];
+  let feedMap = {};
 
   async function loadAllArticles() {
     loading = true;
@@ -38,7 +41,18 @@
     }
   }
 
-  onMount(loadAllArticles);
+  async function loadAllFeeds() {
+    try {
+      feeds = await fetchFeeds();
+      feedMap = Object.fromEntries(feeds.map(f => [f.id, f.name]));
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  onMount(async () => {
+    await Promise.all([loadAllFeeds(), loadAllArticles()]);
+  });
 
   $: allArticles = rawArticles
     .filter(a => a?.id && a.title && a.published_at)
@@ -85,6 +99,8 @@
           feedId={selectedFeedId}
           allArticles={allArticles}
           paused={!!selectedArticle}
+          selectedArticle={selectedArticle}
+          feedMap={feedMap}
           on:select={handleArticleSelect}
         />
       </div>

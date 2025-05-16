@@ -5,6 +5,8 @@
   export let feedId = null;
   export let allArticles = [];
   export let paused = false;
+  export let selectedArticle = null;
+  export let feedMap = {};
   
   const dispatch = createEventDispatcher();
   let articles = [];
@@ -18,10 +20,13 @@
   let animationFrameId = null;
   let pauseByUser = false;
   let pauseTimeout = null;
+  let hoveredArticleId = null;
   
   $: if (feedId) {
     loadArticles(feedId);
   }
+  
+  $: selectedArticleId = selectedArticle?.id || null;
   
   async function loadArticles(id) {
     if (!id) return;
@@ -49,7 +54,6 @@
   }
   
   function selectArticle(articleId) {
-    selectedArticleId = articleId;
     const article = (feedId ? articles : allArticles).find(a => a.id === articleId);
     dispatch('select', { article });
   }
@@ -111,6 +115,15 @@
     }, 2000); // after user scroll, 2 seconds to resume auto scroll
   }
 
+  function handleMouseEnterItem(articleId) {
+    hoveredArticleId = articleId;
+  }
+  function handleMouseLeaveItem(articleId) {
+    if (hoveredArticleId === articleId) {
+      hoveredArticleId = null;
+    }
+  }
+
   onMount(() => {
     startAutoScroll();
     return () => {
@@ -139,11 +152,16 @@
       >
         {#each allArticles as article (article.id)}
           <div 
-            class="article-item {selectedArticleId === article.id ? 'selected' : ''}"
+            class="article-item {(selectedArticleId === article.id || hoveredArticleId === article.id) ? 'selected' : ''}"
             on:click={() => selectArticle(article.id)}
+            on:mouseenter={() => handleMouseEnterItem(article.id)}
+            on:mouseleave={() => handleMouseLeaveItem(article.id)}
           >
             <div class="article-title-row">
               <h3 class="article-title">{article.title}</h3>
+              {#if feedMap && article.feed_id}
+                <span class="article-feed">{feedMap[article.feed_id]}</span>
+              {/if}
               <span class="article-date">{formatDate(article.published_at)}</span>
             </div>
           </div>
@@ -175,11 +193,16 @@
       >
         {#each articles as article (article.id)}
           <div 
-            class="article-item {selectedArticleId === article.id ? 'selected' : ''}"
+            class="article-item {(selectedArticleId === article.id || hoveredArticleId === article.id) ? 'selected' : ''}"
             on:click={() => selectArticle(article.id)}
+            on:mouseenter={() => handleMouseEnterItem(article.id)}
+            on:mouseleave={() => handleMouseLeaveItem(article.id)}
           >
             <div class="article-title-row">
               <h3 class="article-title">{article.title}</h3>
+              {#if feedMap && article.feed_id}
+                <span class="article-feed">{feedMap[article.feed_id]}</span>
+              {/if}
               <span class="article-date">{formatDate(article.published_at)}</span>
             </div>
           </div>
@@ -347,5 +370,12 @@
   }
   body {
     font-size: 11px;
+  }
+  .article-feed {
+    color: var(--color-text-secondary);
+    font-size: 0.85em;
+    margin: 0 0.7em;
+    font-style: italic;
+    white-space: nowrap;
   }
 </style> 
