@@ -135,10 +135,10 @@
   .articles-list {
     display: flex;
     flex-direction: column;
-    gap: 0.8rem;
+    gap: 0.4rem;
   }
   .article-item {
-    padding: 1.1rem 1.2rem;
+    padding: 0.6rem 1rem;
     background: #fff;
     border-radius: var(--radius);
     box-shadow: var(--shadow-elevation-1);

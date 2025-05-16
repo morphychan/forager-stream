@@ -108,9 +108,13 @@
     --spacing: 16px;
   }
 
+  :global(html) {
+    font-size: 70%;
+  }
+
   :global(body) {
     margin: 0;
-    font-size: 11px;
+    font-size: 1.4rem;
     font-family: "Helvetica Neue", Arial, sans-serif;
     background: var(--color-bg);
     color: var(--color-text);
