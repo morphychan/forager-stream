@@ -60,10 +60,16 @@
       </div>
       
       <div class="article-content">
-        {#if fullArticle.content}
+        {#if fullArticle.no_content_reason}
+          <p class="empty">{fullArticle.no_content_reason}</p>
+        {:else if fullArticle.content}
           {@html fullArticle.content}
         {:else if fullArticle.summary}
-          <p>{fullArticle.summary}</p>
+          {#if /<|>/.test(fullArticle.summary)}
+            {@html fullArticle.summary}
+          {:else}
+            <p>{fullArticle.summary}</p>
+          {/if}
         {:else}
           <p>没有可显示的内容</p>
         {/if}
