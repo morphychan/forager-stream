@@ -155,10 +155,10 @@
   .articles-list {
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    gap: 0.15rem;
   }
   .article-item {
-    padding: 0.6rem 1rem;
+    padding: 0.3rem 0.7rem;
     background: #fff;
     border-radius: var(--radius);
     box-shadow: var(--shadow-elevation-1);
