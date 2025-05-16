@@ -1,11 +1,14 @@
 <script>
   import { fetchArticleById } from './api';
+  import { createEventDispatcher } from 'svelte';
   
   export let article = null;
   
   let fullArticle = null;
   let loading = false;
   let error = null;
+  
+  const dispatch = createEventDispatcher();
   
   $: if (article && article.id) {
     loadFullArticle(article.id);
@@ -36,6 +39,7 @@
 
 <div class="article-detail">
   {#if article}
+    <button class="close-btn" on:click={() => dispatch('close')} title="Close">×</button>
     {#if loading}
       <div class="loading">加载文章内容中...</div>
     {:else if error}
@@ -107,6 +111,7 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    position: relative;
   }
   .article-header {
     width: 100%;
@@ -226,5 +231,32 @@
     .article-detail {
       padding: 0.5rem 0.1rem;
     }
+  }
+  .close-btn {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.2rem;
+    background: transparent;
+    border: none;
+    font-size: 1.3rem;
+    color: #888;
+    cursor: pointer;
+    z-index: 20;
+    transition: color 0.18s, background 0.18s;
+    border-radius: 50%;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    text-align: center;
+  }
+  .close-btn:hover,
+  .close-btn:focus {
+    color: #fff;
+    background: #dc3545;
+    outline: none;
   }
 </style> 

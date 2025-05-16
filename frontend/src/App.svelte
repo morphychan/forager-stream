@@ -89,7 +89,7 @@
       </div>
       {#if selectedArticle}
         <div class="article-detail">
-          <ArticleDetail article={selectedArticle} />
+          <ArticleDetail article={selectedArticle} on:close={() => selectedArticle = null} />
         </div>
       {/if}
     </section>

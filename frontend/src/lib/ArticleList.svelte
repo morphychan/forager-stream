@@ -140,9 +140,6 @@
               <h3 class="article-title">{article.title}</h3>
               <span class="article-date">{formatDate(article.published_at)}</span>
             </div>
-            {#if article.summary}
-              <p class="article-summary">{article.summary}</p>
-            {/if}
           </div>
         {/each}
       </div>
@@ -179,9 +176,6 @@
               <h3 class="article-title">{article.title}</h3>
               <span class="article-date">{formatDate(article.published_at)}</span>
             </div>
-            {#if article.summary}
-              <p class="article-summary">{article.summary}</p>
-            {/if}
           </div>
         {/each}
       </div>
