@@ -84,6 +84,7 @@
         <ArticleList
           feedId={selectedFeedId}
           allArticles={allArticles}
+          paused={!!selectedArticle}
           on:select={handleArticleSelect}
         />
       </div>

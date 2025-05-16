@@ -4,6 +4,7 @@
   
   export let feedId = null;
   export let allArticles = [];
+  export let paused = false;
   
   const dispatch = createEventDispatcher();
   let articles = [];
@@ -12,7 +13,8 @@
   let error = null;
   let selectedArticleId = null;
   let articleListContainer;
-  let scrollStep = 10; // pixels per frame
+  let scrollSpeed = 600; // pixels per second
+  let lastTimestamp = null;
   let animationFrameId = null;
   let pauseByUser = false;
   let pauseTimeout = null;
@@ -58,26 +60,31 @@
     return date.toLocaleString('zh-CN');
   }
 
-  function smoothAutoScroll() {
+  function smoothAutoScroll(timestamp) {
     if (!articleListContainer) {
       animationFrameId = requestAnimationFrame(smoothAutoScroll);
       return;
     }
-    if (!pauseByUser) {
+    if (!pauseByUser && !paused) {
       if (
         articleListContainer.scrollTop + articleListContainer.clientHeight >=
         articleListContainer.scrollHeight - 1
       ) {
         articleListContainer.scrollTop = 0;
       } else {
-        articleListContainer.scrollTop += scrollStep;
+        if (lastTimestamp !== null) {
+          const delta = (timestamp - lastTimestamp) / 1000; // 秒
+          articleListContainer.scrollTop += scrollSpeed * delta;
+        }
       }
     }
+    lastTimestamp = timestamp;
     animationFrameId = requestAnimationFrame(smoothAutoScroll);
   }
 
   function startAutoScroll() {
     if (animationFrameId) return;
+    lastTimestamp = null;
     animationFrameId = requestAnimationFrame(smoothAutoScroll);
   }
 
@@ -89,11 +96,10 @@
   }
 
   function handleMouseEnter() {
-    stopAutoScroll();
+    pauseByUser = true;
   }
   function handleMouseLeave() {
     pauseByUser = false;
-    startAutoScroll();
   }
   function handleUserScroll() {
     pauseByUser = true;
