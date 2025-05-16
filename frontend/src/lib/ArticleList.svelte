@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { fetchArticlesByFeed, fetchFeedById } from './api';
   
   export let feedId = null;
@@ -11,6 +11,11 @@
   let loading = true;
   let error = null;
   let selectedArticleId = null;
+  let articleListContainer;
+  let scrollStep = 10; // pixels per frame
+  let animationFrameId = null;
+  let pauseByUser = false;
+  let pauseTimeout = null;
   
   $: if (feedId) {
     loadArticles(feedId);
@@ -52,6 +57,61 @@
     const date = new Date(dateString);
     return date.toLocaleString('zh-CN');
   }
+
+  function smoothAutoScroll() {
+    if (!articleListContainer) {
+      animationFrameId = requestAnimationFrame(smoothAutoScroll);
+      return;
+    }
+    if (!pauseByUser) {
+      if (
+        articleListContainer.scrollTop + articleListContainer.clientHeight >=
+        articleListContainer.scrollHeight - 1
+      ) {
+        articleListContainer.scrollTop = 0;
+      } else {
+        articleListContainer.scrollTop += scrollStep;
+      }
+    }
+    animationFrameId = requestAnimationFrame(smoothAutoScroll);
+  }
+
+  function startAutoScroll() {
+    if (animationFrameId) return;
+    animationFrameId = requestAnimationFrame(smoothAutoScroll);
+  }
+
+  function stopAutoScroll() {
+    if (animationFrameId) {
+      cancelAnimationFrame(animationFrameId);
+      animationFrameId = null;
+    }
+  }
+
+  function handleMouseEnter() {
+    stopAutoScroll();
+  }
+  function handleMouseLeave() {
+    pauseByUser = false;
+    startAutoScroll();
+  }
+  function handleUserScroll() {
+    pauseByUser = true;
+    stopAutoScroll();
+    if (pauseTimeout) clearTimeout(pauseTimeout);
+    pauseTimeout = setTimeout(() => {
+      pauseByUser = false;
+      startAutoScroll();
+    }, 2000); // after user scroll, 2 seconds to resume auto scroll
+  }
+
+  onMount(() => {
+    startAutoScroll();
+    return () => {
+      stopAutoScroll();
+      if (pauseTimeout) clearTimeout(pauseTimeout);
+    };
+  });
 </script>
 
 <div class="article-container">
@@ -61,7 +121,16 @@
         <p>暂无文章</p>
       </div>
     {:else}
-      <div class="articles-list">
+      <div
+        class="articles-list"
+        bind:this={articleListContainer}
+        on:mouseenter={handleMouseEnter}
+        on:mouseleave={handleMouseLeave}
+        on:wheel={handleUserScroll}
+        on:scroll={handleUserScroll}
+        tabindex="0"
+        style="outline: none;"
+      >
         {#each allArticles as article (article.id)}
           <div 
             class="article-item {selectedArticleId === article.id ? 'selected' : ''}"
@@ -91,7 +160,16 @@
         <p>No articles in this feed</p>
       </div>
     {:else}
-      <div class="articles-list">
+      <div
+        class="articles-list"
+        bind:this={articleListContainer}
+        on:mouseenter={handleMouseEnter}
+        on:mouseleave={handleMouseLeave}
+        on:wheel={handleUserScroll}
+        on:scroll={handleUserScroll}
+        tabindex="0"
+        style="outline: none;"
+      >
         {#each articles as article (article.id)}
           <div 
             class="article-item {selectedArticleId === article.id ? 'selected' : ''}"
@@ -156,6 +234,8 @@
     display: flex;
     flex-direction: column;
     gap: 0.15rem;
+    max-height: 80vh;
+    overflow-y: auto;
   }
   .article-item {
     padding: 0.3rem 0.7rem;
