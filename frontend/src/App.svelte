@@ -83,6 +83,7 @@
       <div class="article-list">
         <ArticleList
           feedId={selectedFeedId}
+          allArticles={allArticles}
           on:select={handleArticleSelect}
         />
       </div>

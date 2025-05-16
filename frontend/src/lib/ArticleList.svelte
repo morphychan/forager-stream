@@ -3,6 +3,7 @@
   import { fetchArticlesByFeed, fetchFeedById } from './api';
   
   export let feedId = null;
+  export let allArticles = [];
   
   const dispatch = createEventDispatcher();
   let articles = [];
@@ -42,7 +43,7 @@
   
   function selectArticle(articleId) {
     selectedArticleId = articleId;
-    const article = articles.find(a => a.id === articleId);
+    const article = (feedId ? articles : allArticles).find(a => a.id === articleId);
     dispatch('select', { article });
   }
   
@@ -54,7 +55,30 @@
 </script>
 
 <div class="article-container">
-  {#if feedId}
+  {#if feedId === null}
+    {#if allArticles.length === 0}
+      <div class="empty">
+        <p>暂无文章</p>
+      </div>
+    {:else}
+      <div class="articles-list">
+        {#each allArticles as article (article.id)}
+          <div 
+            class="article-item {selectedArticleId === article.id ? 'selected' : ''}"
+            on:click={() => selectArticle(article.id)}
+          >
+            <h3 class="article-title">{article.title}</h3>
+            <div class="article-meta">
+              <span class="article-date">{formatDate(article.published_at)}</span>
+            </div>
+            {#if article.summary}
+              <p class="article-summary">{article.summary}</p>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+  {:else}
     {#if loading}
       <div class="loading">Loading articles...</div>
     {:else if error}
@@ -84,10 +108,6 @@
         {/each}
       </div>
     {/if}
-  {:else}
-    <div class="empty">
-      <p>Please select a feed</p>
-    </div>
   {/if}
 </div>
 

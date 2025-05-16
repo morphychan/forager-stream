@@ -90,6 +90,12 @@
     </div>
   {:else}
     <ul class="feed-items">
+      <li 
+        class="feed-item {selectedFeedId === null ? 'selected' : ''}"
+        on:click={() => selectFeed(null)}
+      >
+        <span class="feed-title">全部 Feed</span>
+      </li>
       {#each feeds as feed (feed.id)}
         <li 
           class="feed-item {selectedFeedId === feed.id ? 'selected' : ''}" 
