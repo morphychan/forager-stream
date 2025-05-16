@@ -73,7 +73,6 @@
 <div class="feed-list">
   <header class="feed-header">
     <h2>RSS Feeds</h2>
-    <button class="btn" on:click={loadFeeds}>Refresh</button>
   </header>
   
   <AddFeed on:feedAdded={handleFeedAdded} />

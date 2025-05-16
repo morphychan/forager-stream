@@ -61,7 +61,7 @@
 
 <main>
   <header class="header">
-    <h1>RSS Reader</h1>
+    <h1>Forarger Stream</h1>
   </header>
 
   <section class="marquee-container">
