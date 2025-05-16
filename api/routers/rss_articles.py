@@ -82,7 +82,7 @@ def get_article(
     db: Session = Depends(get_db)
 ):
     """
-    Retrieve a specific RSS article by ID.
+    Retrieve a specific RSS article by ID. If summary/content is missing, fetch and update it on demand.
     """
     print(f"[API] Fetching article with ID: {article_id}")
     
@@ -97,7 +97,46 @@ def get_article(
             detail=f"Article with ID {article_id} not found"
         )
     
-    return article
+    # get feed url by feed_id
+    feed = db.query(RSSFeed).filter(RSSFeed.id == article.feed_id).first()
+    if not feed:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Feed with ID {article.feed_id} not found"
+        )
+    feed_url = feed.url
+    
+    # lazy load summary/content (only load when summary is empty)
+    no_content_reason = None
+    if not article.summary:
+        try:
+            from src.forager.input.rss import RSSFetcher
+            fetcher = RSSFetcher(feed_url)
+            fetched_articles = fetcher.fetch(include_details=True)
+            matched = next((a for a in fetched_articles if a.get("link") == article.link), None)
+            if matched:
+                summary = matched.get("summary")
+                content = matched.get("content")
+                if summary or content:
+                    article.summary = summary
+                    article.content = content
+                    db.commit()
+                    print(f"[API] Updated article {article_id} with fetched summary/content.")
+                else:
+                    print(f"[API] No summary/content available in RSS entry; not updating.")
+                    no_content_reason = "No summary/content in RSS entry."
+            else:
+                print(f"[API] No matching article found for link: {article.link}")
+                no_content_reason = "No matching article found in RSS feed."
+        except Exception as e:
+            print(f"[API] Error fetching summary/content for article {article_id}: {e}")
+            no_content_reason = f"Error fetching content: {e}"
+    # return with no_content_reason field
+    result = article
+    if no_content_reason:
+        result = article.__dict__.copy()
+        result["no_content_reason"] = no_content_reason
+    return result
 
 @router.get("/feed/{feed_id}", response_model=List[ArticleInDB], summary="Get articles by feed ID")
 def get_articles_by_feed(
