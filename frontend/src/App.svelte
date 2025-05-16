@@ -50,7 +50,12 @@
   }
 
   function handleArticleSelect(event) {
-    selectedArticle = event.detail.article;
+    const article = event.detail.article;
+    if (selectedArticle && selectedArticle.id === article.id) {
+      selectedArticle = null;
+    } else {
+      selectedArticle = article;
+    }
   }
 </script>
 
@@ -74,16 +79,18 @@
     <aside class="sidebar">
       <FeedList on:select={handleFeedSelect} />
     </aside>
-    <section class="main-content">
+    <section class="main-content {selectedArticle ? 'with-detail' : ''}">
       <div class="article-list">
         <ArticleList
           feedId={selectedFeedId}
           on:select={handleArticleSelect}
         />
       </div>
-      <div class="article-detail">
-        <ArticleDetail article={selectedArticle} />
-      </div>
+      {#if selectedArticle}
+        <div class="article-detail">
+          <ArticleDetail article={selectedArticle} />
+        </div>
+      {/if}
     </section>
   </div>
 </main>
@@ -103,6 +110,7 @@
 
   :global(body) {
     margin: 0;
+    font-size: 11px;
     font-family: "Helvetica Neue", Arial, sans-serif;
     background: var(--color-bg);
     color: var(--color-text);
@@ -116,7 +124,13 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     z-index: 10;
   }
-  .header h1 { margin: 0; color: var(--color-primary); font-size: 1.75rem; }
+  .header h1,
+  .feed-header h2,
+  .article-title {
+    margin: 0;
+    color: var(--color-primary);
+    font-size: 1rem; /* 11px */
+  }
 
   .marquee-container {
     position: sticky; top: 64px;
@@ -166,5 +180,13 @@
     .main-content { flex-direction: column; }
     .article-list { width: 100%; max-height: 300px; }
     .article-detail { margin: var(--spacing) 0; }
+  }
+
+  /* 动态两栏/三栏切换 */
+  .main-content:not(.with-detail) .article-list {
+    width: 100%;
+  }
+  .main-content:not(.with-detail) .article-detail {
+    display: none;
   }
 </style>

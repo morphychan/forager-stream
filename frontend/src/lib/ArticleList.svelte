@@ -23,16 +23,16 @@
       error = null;
       selectedArticleId = null;
       
-      // 加载订阅源信息
+      // load feed info
       feed = await fetchFeedById(id);
       
-      // 加载文章列表
+      // load articles list
       articles = await fetchArticlesByFeed(id);
       
-      // 自动选择第一篇文章
-      if (articles.length > 0) {
-        selectArticle(articles[0].id);
-      }
+      // no auto select first article
+      // if (articles.length > 0) {
+      //   selectArticle(articles[0].id);
+      // }
     } catch (err) {
       error = err.message;
     } finally {
@@ -55,25 +55,16 @@
 
 <div class="article-container">
   {#if feedId}
-    <div class="feed-header">
-      {#if feed}
-        <h2>{feed.title || feed.url}</h2>
-        {#if feed.description}
-          <p class="feed-description">{feed.description}</p>
-        {/if}
-      {/if}
-    </div>
-    
     {#if loading}
-      <div class="loading">加载文章中...</div>
+      <div class="loading">Loading articles...</div>
     {:else if error}
       <div class="error">
         <p>{error}</p>
-        <button on:click={() => loadArticles(feedId)}>重试</button>
+        <button on:click={() => loadArticles(feedId)}>Retry</button>
       </div>
     {:else if articles.length === 0}
       <div class="empty">
-        <p>该订阅源没有文章</p>
+        <p>No articles in this feed</p>
       </div>
     {:else}
       <div class="articles-list">
@@ -95,7 +86,7 @@
     {/if}
   {:else}
     <div class="empty">
-      <p>请选择一个订阅源</p>
+      <p>Please select a feed</p>
     </div>
   {/if}
 </div>
@@ -111,8 +102,8 @@
     --shadow-elevation-1: 0 2px 8px rgba(80, 120, 200, 0.08);
     --shadow-elevation-2: 0 4px 16px rgba(80, 120, 200, 0.12);
     --radius: 12px;
-    --font-size-lg: 1.05rem;
-    --font-size-sm: 0.85rem;
+    --font-size-lg: 1rem;
+    --font-size-sm: 1rem;
     --font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans', Arial, sans-serif;
   }
 
@@ -172,7 +163,7 @@
   }
   .article-title {
     margin: 0 0 0.5rem 0;
-    font-size: 1.08rem;
+    font-size: var(--font-size-lg);
     font-weight: 600;
     color: var(--color-text-primary);
     letter-spacing: 0.2px;
@@ -183,14 +174,14 @@
   .article-meta {
     display: flex;
     color: var(--color-text-secondary);
-    font-size: 0.92rem;
+    font-size: var(--font-size-sm);
     margin-bottom: 0.5rem;
     gap: 1.2rem;
   }
   .article-summary {
     margin: 0;
     color: #333;
-    font-size: 0.98rem;
+    font-size: var(--font-size-sm);
     overflow: hidden;
     text-overflow: ellipsis;
     display: -webkit-box;
@@ -201,7 +192,7 @@
     padding: 2.2rem 0.5rem;
     text-align: center;
     color: var(--color-text-secondary);
-    font-size: 1.05rem;
+    font-size: var(--font-size-lg);
     border-radius: var(--radius);
     background: #fff;
     box-shadow: var(--shadow-elevation-1);
@@ -245,6 +236,6 @@
     }
   }
   body {
-    font-size: 14px;
+    font-size: 11px;
   }
 </style> 

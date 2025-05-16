@@ -96,7 +96,9 @@
           class="feed-item {selectedFeedId === feed.id ? 'selected' : ''}" 
           on:click={() => selectFeed(feed.id)}
         >
-          <span class="feed-title">{feed.title || feed.url}</span>
+          <span class="feed-title" data-url={feed.url}>
+            {feed.name}
+          </span>
           <button 
             class="delete-btn" 
             on:click={(e) => handleDeleteFeed(feed.id, e)}
@@ -120,8 +122,8 @@
     --shadow-elevation-1: 0 2px 8px rgba(80, 120, 200, 0.08);
     --shadow-elevation-2: 0 4px 16px rgba(80, 120, 200, 0.12);
     --radius: 12px;
-    --font-size-lg: 1.05rem;
-    --font-size-sm: 0.85rem;
+    --font-size-lg: 1rem;
+    --font-size-sm: 1rem;
     --font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans', Arial, sans-serif;
   }
 
@@ -173,7 +175,7 @@
     text-align: center;
     padding: 1.2rem 0.5rem;
     color: var(--color-text-secondary);
-    font-size: 1.05rem;
+    font-size: var(--font-size-lg);
     border-radius: var(--radius);
     background: #fff;
     box-shadow: var(--shadow-elevation-1);
@@ -230,7 +232,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 1.05rem;
+    font-size: var(--font-size-lg);
     letter-spacing: 0.2px;
   }
 
