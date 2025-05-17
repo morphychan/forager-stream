@@ -14,6 +14,9 @@
 
   // pause animation when mouse hover
   let paused = false;
+
+  // Force re-render when articles change
+  $: articlesKey = articles.length;
 </script>
 
 <div class="marquee-multiline" on:mouseenter={() => (paused = true)} on:mouseleave={() => (paused = false)}>
@@ -23,6 +26,7 @@
     <div
       class="marquee-content"
       style="--duration: {duration1}; animation-play-state: {paused ? 'paused' : 'running'}"
+      data-key={articlesKey}
     >
       {#each row1 as article (article.id)}
         <span class="headline">{article.title}</span>
@@ -38,6 +42,7 @@
     <div
       class="marquee-content"
       style="--duration: {duration2}; animation-play-state: {paused ? 'paused' : 'running'}"
+      data-key={articlesKey}
     >
       {#each row2 as article (article.id)}
         <span class="headline">{article.title}</span>
