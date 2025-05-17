@@ -74,7 +74,10 @@
         articleListContainer.scrollTop + articleListContainer.clientHeight >=
         articleListContainer.scrollHeight - 1
       ) {
-        articleListContainer.scrollTop = 0;
+        dispatch('loadMore');
+        if (articleListContainer.scrollHeight <= articleListContainer.clientHeight) {
+          articleListContainer.scrollTop = 0;
+        }
       } else {
         if (lastTimestamp !== null) {
           const delta = (timestamp - lastTimestamp) / 1000; // 秒

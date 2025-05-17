@@ -13,19 +13,35 @@
   let error = null;
   let feeds = [];
   let feedMap = {};
+  let page = 0;
+  let hasMore = true;
+  const PAGE_SIZE = 100;
 
-  async function loadAllArticles() {
+  async function loadAllArticles(reset = false) {
+    if (reset) {
+      page = 0;
+      rawArticles = [];
+      hasMore = true;
+    }
+    
+    if (!hasMore || loading) return;
+    
     loading = true;
     error = null;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
-      const res = await fetch('/rss-articles', { signal: controller.signal });
+      const res = await fetch(`/rss-articles?skip=${page * PAGE_SIZE}&limit=${PAGE_SIZE}`, { signal: controller.signal });
       if (!res.ok) throw new Error(`API returned ${res.status}`);
       const text = await res.text();
       console.log('response api text:', text);
       try {
-        rawArticles = JSON.parse(text);
+        const newArticles = JSON.parse(text);
+        if (newArticles.length < PAGE_SIZE) {
+          hasMore = false;
+        }
+        rawArticles = [...rawArticles, ...newArticles];
+        page++;
       } catch {
         throw new Error('Invalid JSON response');
       }
@@ -50,8 +66,20 @@
     }
   }
 
+  function handleScroll(event) {
+    const container = event.target;
+    const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    if (scrollBottom < 100) { // 当距离底部100px时加载更多
+      loadAllArticles();
+    }
+  }
+
+  function handleLoadMore() {
+    loadAllArticles();
+  }
+
   onMount(async () => {
-    await Promise.all([loadAllFeeds(), loadAllArticles()]);
+    await Promise.all([loadAllFeeds(), loadAllArticles(true)]);
   });
 
   $: allArticles = rawArticles
@@ -79,7 +107,7 @@
   </header>
 
   <section class="marquee-container">
-    {#if loading}
+    {#if loading && page === 0}
       <div class="skeleton-marquee"></div>
     {:else}
       {#if error}
@@ -94,7 +122,7 @@
       <FeedList on:select={handleFeedSelect} />
     </aside>
     <section class="main-content {selectedArticle ? 'with-detail' : ''}">
-      <div class="article-list">
+      <div class="article-list" on:scroll={handleScroll}>
         <ArticleList
           feedId={selectedFeedId}
           allArticles={allArticles}
@@ -102,7 +130,11 @@
           selectedArticle={selectedArticle}
           feedMap={feedMap}
           on:select={handleArticleSelect}
+          on:loadMore={handleLoadMore}
         />
+        {#if loading && page > 0}
+          <div class="loading-more">Loading more articles...</div>
+        {/if}
       </div>
       {#if selectedArticle}
         <div class="article-detail">
@@ -210,5 +242,12 @@
   }
   .main-content:not(.with-detail) .article-detail {
     display: none;
+  }
+
+  .loading-more {
+    text-align: center;
+    padding: 1rem;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
   }
 </style>

@@ -23,9 +23,6 @@
       loading = true;
       feeds = await fetchFeeds();
       console.log('feeds:', feeds);
-      if (feeds.length > 0 && !selectedFeedId) {
-        selectFeed(feeds[0].id);
-      }
     } catch (err) {
       error = err.message;
     } finally {
