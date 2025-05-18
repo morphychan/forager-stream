@@ -53,8 +53,45 @@
     }
   }
   
+  async function updateArticleReadStatus(articleId) {
+    try {
+      const response = await fetch(`/rss-articles/${articleId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          manual_labels: {
+            read: true
+          }
+        })
+      });
+      if (!response.ok) {
+        console.error('Failed to update article read status');
+      } else {
+        // Update the article in the list immediately
+        const article = (feedId ? articles : allArticles).find(a => a.id === articleId);
+        if (article) {
+          article.manual_labels = {
+            ...article.manual_labels,
+            read: true
+          };
+        }
+      }
+    } catch (err) {
+      console.error('Error updating article read status:', err);
+    }
+  }
+  
+  function isArticleRead(article) {
+    return article.manual_labels?.read === true;
+  }
+
   function selectArticle(articleId) {
     const article = (feedId ? articles : allArticles).find(a => a.id === articleId);
+    if (article && !isArticleRead(article)) {
+      updateArticleReadStatus(articleId);
+    }
     dispatch('select', { article });
   }
   
@@ -155,13 +192,16 @@
       >
         {#each allArticles as article (article.id)}
           <div 
-            class="article-item {(selectedArticleId === article.id || hoveredArticleId === article.id) ? 'selected' : ''}"
+            class="article-item {(selectedArticleId === article.id || hoveredArticleId === article.id) ? 'selected' : ''} {isArticleRead(article) ? 'read' : ''}"
             on:click={() => selectArticle(article.id)}
             on:mouseenter={() => handleMouseEnterItem(article.id)}
             on:mouseleave={() => handleMouseLeaveItem(article.id)}
           >
             <div class="article-title-row">
               <h3 class="article-title">{article.title}</h3>
+              {#if isArticleRead(article)}
+                <span class="read-badge">Read</span>
+              {/if}
               {#if feedMap && article.feed_id}
                 <span class="article-feed">{feedMap[article.feed_id]}</span>
               {/if}
@@ -196,13 +236,16 @@
       >
         {#each articles as article (article.id)}
           <div 
-            class="article-item {(selectedArticleId === article.id || hoveredArticleId === article.id) ? 'selected' : ''}"
+            class="article-item {(selectedArticleId === article.id || hoveredArticleId === article.id) ? 'selected' : ''} {isArticleRead(article) ? 'read' : ''}"
             on:click={() => selectArticle(article.id)}
             on:mouseenter={() => handleMouseEnterItem(article.id)}
             on:mouseleave={() => handleMouseLeaveItem(article.id)}
           >
             <div class="article-title-row">
               <h3 class="article-title">{article.title}</h3>
+              {#if isArticleRead(article)}
+                <span class="read-badge">Read</span>
+              {/if}
               {#if feedMap && article.feed_id}
                 <span class="article-feed">{feedMap[article.feed_id]}</span>
               {/if}
@@ -286,6 +329,24 @@
     border-left: 4px solid #4f8cff;
     border-color: #4f8cff;
     box-shadow: 0 4px 16px rgba(80, 120, 200, 0.16);
+  }
+  .article-item.read {
+    background: #f0f0f0;
+    opacity: 0.85;
+  }
+  .article-item.read:hover {
+    background: #e8e8e8;
+  }
+  .article-item.read .article-title {
+    color: #666;
+  }
+  .read-badge {
+    background: #4CAF50;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7em;
+    margin-right: 8px;
   }
   .article-title-row {
     display: flex;

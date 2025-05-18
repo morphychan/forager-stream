@@ -1,7 +1,7 @@
 """
 API routes for RSS articles.
 """
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Path
@@ -28,9 +28,14 @@ class ArticleInDB(ArticleBase):
     status: str
     summary: Optional[str] = None
     content: Optional[str] = None
+    manual_labels: Optional[Dict[str, Any]] = None
     
     class Config:
         from_attributes = True
+
+class ArticleUpdate(BaseModel):
+    """Model for updating article data."""
+    manual_labels: Optional[Dict[str, Any]] = None
 
 # Router
 router = APIRouter()
@@ -172,3 +177,38 @@ def get_articles_by_feed(
     
     print(f"[API] Found {len(articles)} articles for feed ID: {feed_id}")
     return articles
+
+@router.patch("/{article_id}", response_model=ArticleInDB, summary="Update an article")
+def update_article(
+    article_id: int = Path(..., description="ID of the article to update"),
+    update_data: ArticleUpdate = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Update a specific RSS article by ID.
+    """
+    print(f"[API] Updating article with ID: {article_id}")
+    
+    article = db.query(RSSArticle).filter(
+        RSSArticle.id == article_id,
+        RSSArticle.deleted_at.is_(None)
+    ).first()
+    
+    if not article:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Article with ID {article_id} not found"
+        )
+    
+    try:
+        if update_data.manual_labels is not None:
+            article.manual_labels = update_data.manual_labels
+        db.commit()
+        db.refresh(article)
+        return article
+    except SQLAlchemyError as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update article: {str(e)}"
+        )
