@@ -69,13 +69,23 @@
       if (!response.ok) {
         console.error('Failed to update article read status');
       } else {
-        // Update the article in the list immediately
+        // Update the article in both lists immediately
         const article = (feedId ? articles : allArticles).find(a => a.id === articleId);
         if (article) {
-          article.manual_labels = {
-            ...article.manual_labels,
-            read: true
+          // Create a new object to trigger reactivity
+          const updatedArticle = {
+            ...article,
+            manual_labels: {
+              ...article.manual_labels,
+              read: true
+            }
           };
+          
+          if (feedId) {
+            articles = articles.map(a => a.id === articleId ? updatedArticle : a);
+          } else {
+            allArticles = allArticles.map(a => a.id === articleId ? updatedArticle : a);
+          }
         }
       }
     } catch (err) {
