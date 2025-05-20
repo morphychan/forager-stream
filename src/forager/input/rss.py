@@ -373,11 +373,27 @@ class RSSFetcher:
                 if debug:
                     print(f"\n[DEBUG] Processing feed {i+1}/{len(feeds)}: {feed.name} ({feed.url})")
                 try:
-                    # 获取分类ID
+                    # Get category name from feed
                     category_name = getattr(feed, 'category', None) or (feed.get('category') if isinstance(feed, dict) else None) or 'Default'
-                    category_id = category_map.get(category_name.strip(), category_map['Default'])
+                    # Check if category exists in the map
+                    if category_name.strip() in category_map:
+                        category_id = category_map[category_name.strip()]
+                    else:
+                        # If Default is not in the map, use the first available category or create a new one
+                        if 'Default' in category_map:
+                            category_id = category_map['Default']
+                        elif category_map:
+                            # Use the first available category
+                            first_category = next(iter(category_map.items()))
+                            category_id = first_category[1]
+                            print(f"[INFO] Category '{category_name}' not found, using '{first_category[0]}' instead")
+                        else:
+                            # Create a new category with the specified name
+                            print(f"[INFO] Creating new category: {category_name}")
+                            category_id = storage.create_category(category_name.strip())
+                            category_map[category_name.strip()] = category_id
                     fetcher = cls(feed.url, storage, feed_parser=feed_parser, debug=debug)
-                    # 传递分类ID给 process_feed
+                    # pass category_id to process_feed
                     article_count = fetcher.process_feed(feed.name, feed.interval, category_id=category_id)
                     results[feed.url] = article_count
                 except Exception as e:
