@@ -125,9 +125,8 @@
         articleListContainer.scrollHeight - 1
       ) {
         dispatch('loadMore');
-        if (articleListContainer.scrollHeight <= articleListContainer.clientHeight) {
-          articleListContainer.scrollTop = 0;
-        }
+        // Reset to top regardless of content height
+        articleListContainer.scrollTop = 0;
       } else {
         if (lastTimestamp !== null) {
           const delta = (timestamp - lastTimestamp) / 1000; // 秒
