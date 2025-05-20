@@ -7,6 +7,7 @@
   export let paused = false;
   export let selectedArticle = null;
   export let feedMap = {};
+  export let enableAutoScroll = true; // 默认开启自动滚动
   
   const dispatch = createEventDispatcher();
   let articles = [];
@@ -116,6 +117,8 @@
       animationFrameId = requestAnimationFrame(smoothAutoScroll);
       return;
     }
+    
+    // Only scroll if not paused by user interaction or external pause flag
     if (!pauseByUser && !paused) {
       if (
         articleListContainer.scrollTop + articleListContainer.clientHeight >=
@@ -132,6 +135,7 @@
         }
       }
     }
+    
     lastTimestamp = timestamp;
     animationFrameId = requestAnimationFrame(smoothAutoScroll);
   }
@@ -140,6 +144,7 @@
     if (animationFrameId) return;
     lastTimestamp = null;
     animationFrameId = requestAnimationFrame(smoothAutoScroll);
+    console.log('Auto scroll started');
   }
 
   function stopAutoScroll() {
@@ -149,19 +154,32 @@
     }
   }
 
+  // These handlers should be effective immediately
   function handleMouseEnter() {
     pauseByUser = true;
+    // For debugging
+    console.log('Mouse entered list - pausing scroll');
   }
+  
   function handleMouseLeave() {
     pauseByUser = false;
+    // For debugging
+    console.log('Mouse left list - resuming scroll');
   }
+
   function handleUserScroll() {
     pauseByUser = true;
-    stopAutoScroll();
+    // 不停止自动滚动，只是暂停
+    // stopAutoScroll();
     if (pauseTimeout) clearTimeout(pauseTimeout);
+    
     pauseTimeout = setTimeout(() => {
-      pauseByUser = false;
-      startAutoScroll();
+      if (!articleListContainer.matches(':hover')) {
+        pauseByUser = false;
+        console.log('Resuming scroll after user interaction');
+      } else {
+        console.log('Not resuming scroll - mouse still in list');
+      }
     }, 2000); // after user scroll, 2 seconds to resume auto scroll
   }
 
