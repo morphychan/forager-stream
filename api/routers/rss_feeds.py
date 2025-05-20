@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from api.deps import get_db
-from src.forager.storage.models import RSSFeed
+from src.forager.storage.models import RSSFeed, Category
 
 # Pydantic schemas
 class FeedBase(BaseModel):
@@ -57,6 +57,14 @@ class FeedInDB(FeedBase):
     last_error: Optional[str] = None
     last_error_at: Optional[datetime] = None
     
+    class Config:
+        orm_mode = True
+
+class CategoryInDB(BaseModel):
+    id: int
+    name: str
+    created_at: datetime
+    updated_at: datetime
     class Config:
         orm_mode = True
 
@@ -125,7 +133,6 @@ def create_feed(feed: FeedCreate, db: Session = Depends(get_db)):
     print(f"[API] Creating new feed: {feed.dict()}")
     
     # Check if category exists
-    from src.forager.storage.models import Category
     category = db.query(Category).filter(Category.id == feed.category_id).first()
     if not category:
         raise HTTPException(
@@ -228,7 +235,6 @@ def update_feed(
     
     # Check if category exists if changing it
     if feed_update.category_id is not None:
-        from src.forager.storage.models import Category
         category = db.query(Category).filter(Category.id == feed_update.category_id).first()
         if not category:
             raise HTTPException(
@@ -313,3 +319,11 @@ def delete_feed(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to delete feed"
         )
+
+@router.get("/categories/", response_model=List[CategoryInDB], summary="List all categories")
+def list_categories(db: Session = Depends(get_db)):
+    """
+    Get all feed categories.
+    """
+    categories = db.query(Category).order_by(Category.id).all()
+    return categories

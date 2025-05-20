@@ -4,34 +4,29 @@
   
   // @ts-nocheck
   import { createEventDispatcher, onMount } from 'svelte';
-  import { fetchFeeds, deleteFeed } from './api';
-  import AddFeed from './AddFeed.svelte';
-  
-  const dispatch = createEventDispatcher();
-  let feeds = [];
-  let loading = true;
+  import { deleteFeed } from './api';
+import AddFeed from './AddFeed.svelte';
+
+const dispatch = createEventDispatcher();
+  let categories = [];
+  let categoriesLoading = true;
   let error = null;
   let selectedFeedId = null;
+  let expandedCategoryId = null; // current expanded category id
+  let feedsMap = {}; // { categoryId: Feed[] }
+  let feedsLoadingMap = {}; // { categoryId: boolean }
+  let allFeeds = [];
+  let allFeedsLoading = false;
   
   onMount(async () => {
-    await loadFeeds();
+    await loadCategories();
   });
   
-  /** Load the list of feeds from the backend */
-  async function loadFeeds() {
-    try {
-      loading = true;
-      feeds = await fetchFeeds();
-      console.log('feeds:', feeds);
-    } catch (err) {
-      error = err.message;
-    } finally {
-      loading = false;
-    }
-  }
+    // 该函数已由 fetchFeedsByCategory 替代
   
   /** Mark a feed as selected and notify parent */
-  function selectFeed(feedId) {
+  function selectFeed(feedId, event) {
+    event.stopPropagation(); // Stop the click from bubbling up to parent category
     selectedFeedId = feedId;
     dispatch('select', { feedId });
   }
@@ -46,14 +41,19 @@
     
     try {
       await deleteFeed(feedId);
-      feeds = feeds.filter(f => f.id !== feedId);
       
+      // If we're viewing a category, update its feeds
+      if (expandedCategoryId !== null && feedsMap[expandedCategoryId]) {
+        feedsMap[expandedCategoryId] = feedsMap[expandedCategoryId].filter(f => f.id !== feedId);
+      }
+      
+      // If this was the selected feed, select either the first feed in the category or none
       if (selectedFeedId === feedId) {
-        if (feeds.length > 0) {
-          selectFeed(feeds[0].id);
+        if (expandedCategoryId !== null && feedsMap[expandedCategoryId]?.length > 0) {
+          selectFeed(feedsMap[expandedCategoryId][0].id, event);
         } else {
-          selectedFeedId = null;
-          dispatch('select', { feedId: null });
+          // No feeds left in this category or viewing all feeds - select none (virtual "All Feeds")
+          selectFeed(null, event);
         }
       }
     } catch (err) {
@@ -62,8 +62,74 @@
   }
   
   /** Refresh list when a new feed is added */
-  function handleFeedAdded() {
-    loadFeeds();
+  async function handleFeedAdded() {
+    // Only refresh feeds for the current category if one is expanded
+    if (expandedCategoryId !== null) {
+      feedsMap[expandedCategoryId] = await fetchFeedsByCategory(expandedCategoryId);
+    }
+    // For "All Feeds" (virtual feed), no need to refresh anything as it will 
+    // show all articles regardless of feed
+  }
+
+  // 获取所有分类
+  async function loadCategories() {
+    try {
+      categoriesLoading = true;
+      const res = await fetch('/rss-feeds/categories/');
+      if (!res.ok) throw new Error('Failed to fetch categories');
+      categories = await res.json();
+    } catch (err) {
+      error = err.message;
+    } finally {
+      categoriesLoading = false;
+    }
+  }
+
+  async function toggleCategory(categoryId, event) {
+    if (expandedCategoryId === categoryId) {
+      expandedCategoryId = null;
+    } else {
+      expandedCategoryId = categoryId;
+      if (!feedsMap[categoryId]) {
+        feedsLoadingMap[categoryId] = true;
+        feedsMap[categoryId] = await fetchFeedsByCategory(categoryId);
+        feedsLoadingMap[categoryId] = false;
+        
+        // If we have a selected feed ID that might be in this category,
+        // check if it exists in the newly loaded feeds
+        if (selectedFeedId) {
+          const feedExists = feedsMap[categoryId].some(feed => feed.id === selectedFeedId);
+          if (feedExists) {
+            // Keep the feed selected
+          } else if (feedsMap[categoryId].length > 0) {
+            // Select the first feed in this category
+            selectFeed(feedsMap[categoryId][0].id, event);
+          }
+        } else if (feedsMap[categoryId].length > 0) {
+          // If no feed was previously selected, select the first one
+          selectFeed(feedsMap[categoryId][0].id, event);
+        }
+      }
+    }
+  }
+
+  async function showAllFeeds(event) {
+    expandedCategoryId = null;
+    // We no longer need to load allFeeds since "All Feeds" will just be a virtual feed
+    // that directly displays all articles in App.svelte
+
+    // Notify parent that all feeds are selected (null feedId)
+    selectFeed(null, event);
+  }
+
+  async function fetchFeedsByCategory(categoryId = null) {
+    let url = '/rss-feeds/';
+    if (categoryId) {
+      url += `?category_id=${categoryId}`;
+    }
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('获取RSS订阅源失败');
+    return await response.json();
   }
 </script>
 
@@ -74,39 +140,35 @@
   
   <AddFeed on:feedAdded={handleFeedAdded} />
   
-  {#if loading}
+  {#if categoriesLoading}
     <div class="status-message">Loading...</div>
   {:else if error}
     <div class="status-message error">
       <p>{error}</p>
-      <button class="btn" on:click={loadFeeds}>Retry</button>
-    </div>
-  {:else if feeds.length === 0}
-    <div class="status-message empty">
-      <p>No feeds yet. Please add one.</p>
+      <button class="btn" on:click={(e) => { loadCategories(); if (expandedCategoryId === null) showAllFeeds(e); else if (expandedCategoryId) toggleCategory(expandedCategoryId, e); }}>Retry</button>
     </div>
   {:else}
-    <ul class="feed-items">
-      <li 
-        class="feed-item {selectedFeedId === null ? 'selected' : ''}"
-        on:click={() => selectFeed(null)}
-      >
-        <span class="feed-title">全部 Feed</span>
+    <ul class="category-list">
+      <li class="category-item {expandedCategoryId === null ? 'selected' : ''}" on:click={(e) => showAllFeeds(e)}>
+        <span>全部 Feed</span>
       </li>
-      {#each feeds as feed (feed.id)}
-        <li 
-          class="feed-item {selectedFeedId === feed.id ? 'selected' : ''}" 
-          on:click={() => selectFeed(feed.id)}
-        >
-          <span class="feed-title" data-url={feed.url}>
-            {feed.name}
-          </span>
-          <button 
-            class="delete-btn" 
-            on:click={(e) => handleDeleteFeed(feed.id, e)}
-          >
-            ×
-          </button>
+      {#each categories as category}
+        <li class="category-item {expandedCategoryId === category.id ? 'selected' : ''}" on:click={(e) => toggleCategory(category.id, e)}>
+          <span>{category.name}</span>
+          {#if expandedCategoryId === category.id}
+            {#if feedsLoadingMap[category.id]}
+              <div class="status-message">Loading...</div>
+            {:else}
+              <ul class="feed-items">
+                {#each feedsMap[category.id] || [] as feed (feed.id)}
+                  <li class="feed-item {selectedFeedId === feed.id ? 'selected' : ''}" on:click={(e) => selectFeed(feed.id, e)}>
+                    <span class="feed-title" data-url={feed.url}>{feed.name}</span>
+                    <button class="delete-btn" on:click={(e) => handleDeleteFeed(feed.id, e)}>×</button>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          {/if}
         </li>
       {/each}
     </ul>
@@ -292,5 +354,27 @@
 
   body {
     font-size: 14px;
+  }
+
+  .category-list {
+    list-style: none;
+    margin: 0 0 1rem 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .category-item {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    background: #f5f7fa;
+    color: #4f8cff;
+    font-weight: 600;
+    transition: background 0.18s, color 0.18s;
+  }
+  .category-item.selected {
+    background: linear-gradient(90deg, #e3f0ff 60%, #f7fafd 100%);
+    color: #357ae8;
   }
 </style>

@@ -213,33 +213,27 @@ class RSSFetcher:
                 return category["id"]
         return self.storage.create_category("Default")
 
-    def process_feed(self, name: str, interval: int) -> int:
+    def process_feed(self, name: str, interval: int, category_id: Optional[int] = None) -> int:
         """
         Process a single feed: fetch and store articles.
-
-        Args:
-            name (str): Name of the feed
-            interval (int): Poll interval in seconds
-
-        Returns:
-            int: Number of articles saved
+        新增 category_id 参数，优先使用传入的 category_id。
         """
         if not self.storage:
             raise ValueError("Storage backend not initialized")
-
         try:
             # check if the feed already exists  
             if self.debug:
                 print(f"[DEBUG] Checking if feed exists: {self.url}")
             existing_feeds = self.storage.get_feeds()
             feed_exists = any(f["url"] == self.url for f in existing_feeds)
-            
             if not feed_exists:
                 # create a new feed
                 if self.debug:
                     print(f"[DEBUG] Creating new feed in database: {self.url}")
                 try:
-                    category_id = self.ensure_default_category()
+                    # 优先用传入的 category_id
+                    if category_id is None:
+                        category_id = self.ensure_default_category()
                     if self.debug:
                         print(f"[DEBUG] Using category ID: {category_id}")
                     feed_id = self.storage.create_feed(
@@ -265,12 +259,10 @@ class RSSFetcher:
                 except Exception as e:
                     print(f"[ERROR] Failed to get existing feed ID: {str(e)}")
                     raise
-            
             # fetch articles - we don't need summary or content for database storage
             if self.debug:
                 print(f"[DEBUG] Fetching articles for database storage")
             articles = self.fetch(include_details=False)
-            
             if articles:
                 # get existing articles
                 if self.debug:
@@ -283,12 +275,10 @@ class RSSFetcher:
                 except Exception as e:
                     print(f"[ERROR] Failed to get existing articles: {str(e)}")
                     raise
-
                 # get new articles
                 new_articles = [article for article in articles if article["link"] not in existing_article_links]
                 if self.debug:
                     print(f"[DEBUG] Found {len(new_articles)} new articles out of {len(articles)} total")
-                
                 db_articles = []
                 for article in new_articles:
                     try:
@@ -307,7 +297,6 @@ class RSSFetcher:
                     except Exception as e:
                         print(f"[ERROR] Failed to process article {article['link']}: {str(e)}")
                         # Continue with other articles instead of failing completely
-                
                 # save articles
                 if db_articles:
                     if self.debug:
@@ -326,7 +315,6 @@ class RSSFetcher:
                     if self.debug:
                         print("[DEBUG] No new articles to save")
                     article_ids = []
-                
                 if article_ids:
                     print(f"[INFO] Saved {len(article_ids)} articles from {self.url}")
                 else:
@@ -338,52 +326,65 @@ class RSSFetcher:
             raise
 
     @classmethod
+    def sync_categories_from_config(cls, config_feeds, storage) -> dict:
+        """
+        Make sure all categories in the config are inserted into the database, and return a mapping of {category name: category ID}.
+        """
+        # compatible with both objects and dicts
+        category_names = set(
+            getattr(feed, 'category', None) or (feed.get('category') if isinstance(feed, dict) else None) or 'Default'
+            for feed in config_feeds
+        )
+        category_names = set(name.strip() for name in category_names)
+        # query existing categories in the database
+        db_categories = storage.get_categories()  # [{'id': 1, 'name': 'Default'}, ...]
+        db_category_map = {c['name']: c['id'] for c in db_categories}
+        # insert missing categories
+        for name in category_names:
+            if name not in db_category_map:
+                new_id = storage.create_category(name)
+                db_category_map[name] = new_id
+        print(f"[INFO] Syncing categories from config: {category_names}")
+        return db_category_map
+
+    @classmethod
     def process_feeds_from_config(cls, config_path: Path, storage: SQLiteStorage, user_agent: Optional[str] = None, debug: bool = False) -> Dict[str, int]:
         """
         Process all feeds from config file.
-
-        Args:
-            config_path (Path): Path to the config file
-            storage (SQLiteStorage): Storage backend
-            user_agent (Optional[str]): Custom User-Agent to use for all requests
-            debug (bool): Whether to use debug mode for fetching
-
-        Returns:
-            Dict[str, int]: Dictionary mapping feed URLs to number of articles saved
         """
         if debug:
             print(f"[DEBUG] Loading feeds from config: {config_path}")
-        
         try:
             config_manager = ConfigManager(config_path)
             feeds = config_manager.get_enabled_feeds()
-            
             if debug:
                 print(f"[DEBUG] Found {len(feeds)} enabled feeds in config")
                 for i, feed in enumerate(feeds):
                     print(f"[DEBUG] Feed {i+1}: {feed.name} - {feed.url}")
-            
+            # 分类同步
+            feed_dicts = [feed.__dict__ if hasattr(feed, '__dict__') else feed for feed in feeds]
+            category_map = cls.sync_categories_from_config(feed_dicts, storage)
             # create a shared feed parser to reuse the HTTP session
             if debug:
                 print("[DEBUG] Creating shared feed parser")
             feed_parser = FeedParserAdapter.create_with_defaults(user_agent=user_agent)
-            
             results = {}
             for i, feed in enumerate(feeds):
                 if debug:
                     print(f"\n[DEBUG] Processing feed {i+1}/{len(feeds)}: {feed.name} ({feed.url})")
                 try:
+                    # 获取分类ID
+                    category_name = getattr(feed, 'category', None) or (feed.get('category') if isinstance(feed, dict) else None) or 'Default'
+                    category_id = category_map.get(category_name.strip(), category_map['Default'])
                     fetcher = cls(feed.url, storage, feed_parser=feed_parser, debug=debug)
-                    article_count = fetcher.process_feed(feed.name, feed.interval)
+                    # 传递分类ID给 process_feed
+                    article_count = fetcher.process_feed(feed.name, feed.interval, category_id=category_id)
                     results[feed.url] = article_count
                 except Exception as e:
                     print(f"[ERROR] Failed to process feed {feed.url}: {e}")
-                    # Try to get more details about the error
                     if debug:
                         import traceback
                         print(f"[DEBUG] Error traceback:\n{traceback.format_exc()}")
-                    
-                    # get the feed ID and update the error status
                     try:
                         if debug:
                             print(f"[DEBUG] Updating error status for feed: {feed.url}")
@@ -398,9 +399,7 @@ class RSSFetcher:
                                 print(f"[DEBUG] Feed not found in database to update error status: {feed.url}")
                     except Exception as update_error:
                         print(f"[ERROR] Failed to update error status: {update_error}")
-                    
                     results[feed.url] = -1  # -1 means error
-            
             return results
         except Exception as e:
             print(f"[ERROR] Failed to process feeds from config: {e}")

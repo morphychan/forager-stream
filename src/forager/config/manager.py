@@ -15,6 +15,7 @@ class FeedConfig:
     url: str
     interval: int
     enabled: bool
+    category: Optional[str] = None
 
 class ConfigError(Exception):
     """Base exception for configuration errors."""
@@ -74,7 +75,8 @@ class ConfigManager:
                     name=feed['name'],
                     url=feed['url'],
                     interval=int(feed['interval']),
-                    enabled=bool(feed['enabled'])
+                    enabled=bool(feed['enabled']),
+                    category=feed.get('category')
                 ))
             except (ValueError, TypeError) as e:
                 raise ConfigValidationError(
