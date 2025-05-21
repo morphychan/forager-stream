@@ -249,15 +249,43 @@ class RSSFetcher:
                     print(f"[ERROR] Failed to create feed in database: {str(e)}")
                     raise
             else:
-                # get the existing feed ID
+                # get the existing feed ID and update feed if properties have changed
                 if self.debug:
                     print(f"[DEBUG] Feed already exists: {self.url}")
                 try:
-                    feed_id = next(f["id"] for f in existing_feeds if f["url"] == self.url)
+                    existing_feed = next(f for f in existing_feeds if f["url"] == self.url)
+                    feed_id = existing_feed["id"]
                     if self.debug:
                         print(f"[DEBUG] Using existing feed ID: {feed_id}")
+                    
+                    # Check if any properties need to be updated
+                    updates = {}
+                    if name != existing_feed["name"]:
+                        updates["name"] = name
+                        if self.debug:
+                            print(f"[DEBUG] Updating feed name: {existing_feed['name']} -> {name}")
+                    
+                    if interval != existing_feed["poll_interval"]:
+                        updates["poll_interval"] = interval
+                        if self.debug:
+                            print(f"[DEBUG] Updating feed interval: {existing_feed['poll_interval']} -> {interval}")
+                    
+                    if category_id is not None and category_id != existing_feed["category_id"]:
+                        updates["category_id"] = category_id
+                        if self.debug:
+                            print(f"[DEBUG] Updating feed category: {existing_feed['category_id']} -> {category_id}")
+                    
+                    # If there are updates, apply them
+                    if updates:
+                        if self.debug:
+                            print(f"[DEBUG] Updating feed properties for feed ID {feed_id}: {updates}")
+                        success = self.storage.update_feed(feed_id, updates)
+                        if success:
+                            print(f"[INFO] Updated feed properties for: {self.url}")
+                        else:
+                            print(f"[WARNING] Failed to update feed properties for: {self.url}")
                 except Exception as e:
-                    print(f"[ERROR] Failed to get existing feed ID: {str(e)}")
+                    print(f"[ERROR] Failed to update existing feed: {str(e)}")
                     raise
             # fetch articles - we don't need summary or content for database storage
             if self.debug:
