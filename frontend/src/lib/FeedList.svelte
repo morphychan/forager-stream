@@ -95,20 +95,15 @@ const dispatch = createEventDispatcher();
         feedsMap[categoryId] = await fetchFeedsByCategory(categoryId);
         feedsLoadingMap[categoryId] = false;
         
-        // If we have a selected feed ID that might be in this category,
-        // check if it exists in the newly loaded feeds
+        // Check if the currently selected feed exists in this category
         if (selectedFeedId) {
           const feedExists = feedsMap[categoryId].some(feed => feed.id === selectedFeedId);
           if (feedExists) {
             // Keep the feed selected
-          } else if (feedsMap[categoryId].length > 0) {
-            // Select the first feed in this category
-            selectFeed(feedsMap[categoryId][0].id, event);
           }
-        } else if (feedsMap[categoryId].length > 0) {
-          // If no feed was previously selected, select the first one
-          selectFeed(feedsMap[categoryId][0].id, event);
+          // Remove the automatic selection of the first feed
         }
+        // Remove the automatic selection when no feed was previously selected
       }
     }
   }
