@@ -1,10 +1,10 @@
-// API服务，处理与后端的通信
-const API_BASE_URL = 'http://192.168.41.31:8000';
+// API base URL
+const API_BASE_URL = '';  // 使用相对路径，以便与前端服务代理一致
 
 export async function fetchFeeds() {
   const response = await fetch(`${API_BASE_URL}/rss-feeds/`);
   if (!response.ok) {
-    throw new Error('获取RSS订阅源失败');
+    throw new Error('Failed to fetch feeds');
   }
   return await response.json();
 }
@@ -12,7 +12,7 @@ export async function fetchFeeds() {
 export async function fetchFeedById(feedId) {
   const response = await fetch(`${API_BASE_URL}/rss-feeds/${feedId}`);
   if (!response.ok) {
-    throw new Error(`获取RSS订阅源 ${feedId} 失败`);
+    throw new Error(`Failed to fetch feed ${feedId}`);
   }
   return await response.json();
 }
@@ -20,7 +20,18 @@ export async function fetchFeedById(feedId) {
 export async function fetchArticlesByFeed(feedId) {
   const response = await fetch(`${API_BASE_URL}/rss-articles/feed/${feedId}`);
   if (!response.ok) {
-    throw new Error(`获取订阅源 ${feedId} 的文章失败`);
+    throw new Error(`Failed to fetch articles for feed ${feedId}`);
+  }
+  return await response.json();
+}
+
+export async function fetchArticlesByCategory(categoryId, skip = 0, limit = 100) {
+  console.log(`Fetching articles for category ${categoryId} with skip=${skip}, limit=${limit}`);
+  const response = await fetch(`${API_BASE_URL}/rss-articles?category_id=${categoryId}&skip=${skip}&limit=${limit}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`API error: ${errorText}`);
+    throw new Error(`Failed to fetch articles for category ${categoryId}`);
   }
   return await response.json();
 }
@@ -28,7 +39,7 @@ export async function fetchArticlesByFeed(feedId) {
 export async function fetchArticleById(articleId) {
   const response = await fetch(`${API_BASE_URL}/rss-articles/${articleId}`);
   if (!response.ok) {
-    throw new Error(`获取文章 ${articleId} 失败`);
+    throw new Error(`Failed to fetch article ${articleId}`);
   }
   return await response.json();
 }
@@ -42,7 +53,7 @@ export async function createFeed(feedData) {
     body: JSON.stringify(feedData),
   });
   if (!response.ok) {
-    throw new Error('创建RSS订阅源失败');
+    throw new Error('Failed to create feed');
   }
   return await response.json();
 }
@@ -56,7 +67,7 @@ export async function updateFeed(feedId, feedData) {
     body: JSON.stringify(feedData),
   });
   if (!response.ok) {
-    throw new Error(`更新RSS订阅源 ${feedId} 失败`);
+    throw new Error(`Failed to update feed ${feedId}`);
   }
   return await response.json();
 }
@@ -66,7 +77,7 @@ export async function deleteFeed(feedId) {
     method: 'DELETE',
   });
   if (!response.ok) {
-    throw new Error(`删除RSS订阅源 ${feedId} 失败`);
+    throw new Error(`Failed to delete feed ${feedId}`);
   }
   return await response.json();
 } 

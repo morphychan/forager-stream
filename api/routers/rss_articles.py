@@ -46,6 +46,7 @@ def list_articles(
     skip: int = Query(0, description="Number of items to skip for pagination"),
     limit: int = Query(100, description="Maximum number of items to return"),
     feed_id: Optional[int] = Query(None, description="Filter by feed ID"),
+    category_id: Optional[int] = Query(None, description="Filter by category ID"),
     status: Optional[str] = Query(None, description="Filter by article status"),
     before_date: Optional[datetime] = Query(None, description="Filter articles published before this date"),
     after_date: Optional[datetime] = Query(None, description="Filter articles published after this date")
@@ -53,7 +54,7 @@ def list_articles(
     """
     Retrieve RSS articles with pagination and filtering options.
     """
-    print(f"[API] Fetching articles with skip={skip}, limit={limit}, feed_id={feed_id}, status={status}")
+    print(f"[API] Fetching articles with skip={skip}, limit={limit}, feed_id={feed_id}, category_id={category_id}, status={status}")
     
     # Create base query
     query = db.query(RSSArticle)
@@ -61,6 +62,8 @@ def list_articles(
     # Apply filters
     if feed_id is not None:
         query = query.filter(RSSArticle.feed_id == feed_id)
+    if category_id is not None:
+        query = query.join(RSSFeed, RSSArticle.feed_id == RSSFeed.id).filter(RSSFeed.category_id == category_id)
     if status is not None:
         query = query.filter(RSSArticle.status == status)
     if before_date is not None:

@@ -4,19 +4,80 @@
   import ArticleList from './lib/ArticleList.svelte';
   import ArticleDetail from './lib/ArticleDetail.svelte';
   import HeadlineMarquee from './lib/HeadlineMarquee.svelte';
-  import { fetchFeeds } from './lib/api';
+  import { fetchFeeds, fetchArticlesByCategory } from './lib/api';
 
   let selectedFeedId = null;
   let selectedArticle = null;
-  let rawArticles = [];
+  let rawArticles = [];  // 主文章列表的文章
+  let marqueeArticles = []; // 跑马灯的文章
   let loading = false;
+  let marqueeLoading = false;
   let error = null;
+  let marqueeError = null;
   let feeds = [];
   let feedMap = {};
   let page = 0;
   let hasMore = true;
   const PAGE_SIZE = 100;
+  
+  // Add state for marquee category
+  let marqueeSelectedCategoryId = null;
+  let categories = [];
+  let categoriesLoading = false;
+  
+  // 分类颜色和图标
+  const categoryColors = [
+    '#f0f7ff', // 浅蓝色
+    '#fff0f0', // 浅红色
+    '#f0fff0', // 浅绿色
+    '#fff0ff', // 浅紫色
+    '#fffff0', // 浅黄色
+    '#f0ffff', // 浅青色
+    '#f5f5f5', // 浅灰色
+    '#e6f7ff', // 天蓝色
+  ];
+  
+  const categoryIcons = [
+    '📰', // 新闻
+    '💻', // 科技
+    '🔬', // 科学
+    '🎮', // 游戏
+    '📚', // 文学
+    '🎬', // 娱乐
+    '💼', // 商业
+    '🌍', // 国际
+  ];
+  
+  // 根据索引生成分类颜色
+  function getCategoryColor(index) {
+    return categoryColors[index % categoryColors.length];
+  }
+  
+  // 根据索引生成分类图标
+  function getCategoryIcon(index) {
+    return categoryIcons[index % categoryIcons.length];
+  }
+  
+  // 保存和加载用户的分类选择
+  function saveSelectedCategory(categoryId) {
+    try {
+      localStorage.setItem('marqueeCategoryId', categoryId || '');
+    } catch (e) {
+      console.error('Failed to save category to localStorage:', e);
+    }
+  }
+  
+  function loadSelectedCategory() {
+    try {
+      const savedCategory = localStorage.getItem('marqueeCategoryId');
+      return savedCategory ? parseInt(savedCategory) : null;
+    } catch (e) {
+      console.error('Failed to load category from localStorage:', e);
+      return null;
+    }
+  }
 
+  // 为主文章列表加载文章
   async function loadAllArticles(reset = false) {
     if (reset) {
       page = 0;
@@ -31,29 +92,61 @@
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
+      // 始终加载所有文章，不按分类过滤
+      console.log('Loading all articles for main list');
       const res = await fetch(`/rss-articles?skip=${page * PAGE_SIZE}&limit=${PAGE_SIZE}`, { signal: controller.signal });
       if (!res.ok) throw new Error(`API returned ${res.status}`);
       const text = await res.text();
-      console.log('response api text:', text);
-      try {
-        const newArticles = JSON.parse(text);
-        if (newArticles.length < PAGE_SIZE) {
-          hasMore = false;
-        }
-        rawArticles = [...rawArticles, ...newArticles];
-        page++;
-      } catch {
-        throw new Error('Invalid JSON response');
+      console.log('All articles response for main list');
+      const newArticles = JSON.parse(text);
+      
+      console.log(`Loaded ${newArticles.length} articles for main list`);
+      if (newArticles.length < PAGE_SIZE) {
+        hasMore = false;
       }
+      rawArticles = [...rawArticles, ...newArticles];
+      page++;
     } catch (e) {
       if (e.name === 'AbortError') {
         error = 'Request timed out, please try again later';
       } else {
         error = e.message;
       }
+      console.error('Error loading articles for main list:', e);
     } finally {
       loading = false;
       clearTimeout(timeoutId);
+    }
+  }
+
+  // 为跑马灯加载文章，根据分类过滤
+  async function loadMarqueeArticles() {
+    if (marqueeLoading) return;
+    
+    marqueeLoading = true;
+    marqueeError = null;
+    try {
+      // 根据选定的分类加载文章
+      if (marqueeSelectedCategoryId) {
+        console.log(`Loading marquee articles for category ID: ${marqueeSelectedCategoryId}`);
+        marqueeArticles = await fetchArticlesByCategory(
+          marqueeSelectedCategoryId, 
+          0,  // 从头开始
+          PAGE_SIZE  // 使用与主列表相同的页面大小，不限制数量
+        );
+      } else {
+        console.log('Loading all articles for marquee');
+        const res = await fetch(`/rss-articles?limit=${PAGE_SIZE}`);
+        if (!res.ok) throw new Error(`API returned ${res.status}`);
+        const data = await res.json();
+        marqueeArticles = data;
+      }
+      console.log(`Loaded ${marqueeArticles.length} articles for marquee`);
+    } catch (e) {
+      marqueeError = e.message;
+      console.error('Error loading marquee articles:', e);
+    } finally {
+      marqueeLoading = false;
     }
   }
 
@@ -63,6 +156,33 @@
       feedMap = Object.fromEntries(feeds.map(f => [f.id, f.name]));
     } catch (e) {
       // ignore
+    }
+  }
+  
+  // Add function to load categories
+  async function loadCategories() {
+    try {
+      categoriesLoading = true;
+      const res = await fetch('/rss-feeds/categories/');
+      if (!res.ok) throw new Error('Failed to fetch categories');
+      categories = await res.json();
+    } catch (e) {
+      console.error('Failed to load categories:', e);
+    } finally {
+      categoriesLoading = false;
+    }
+  }
+  
+  // Add function to handle category selection for the marquee
+  function handleMarqueeCategoryChange(event) {
+    const categoryId = event.target.value ? parseInt(event.target.value) : null;
+    console.log(`Selected marquee category ID: ${categoryId}`);
+    if (marqueeSelectedCategoryId !== categoryId) {
+      marqueeSelectedCategoryId = categoryId;
+      // 保存用户选择
+      saveSelectedCategory(categoryId);
+      console.log(`Switching marquee to category ID: ${marqueeSelectedCategoryId}`);
+      loadMarqueeArticles(); // 只重新加载跑马灯的文章
     }
   }
 
@@ -79,12 +199,39 @@
   }
 
   onMount(async () => {
-    await Promise.all([loadAllFeeds(), loadAllArticles(true)]);
+    await loadCategories();
+    // 加载用户之前保存的分类选择
+    marqueeSelectedCategoryId = loadSelectedCategory();
+    // 确保分类ID有效（存在于已加载的分类列表中）
+    if (marqueeSelectedCategoryId && categories.length > 0) {
+      const categoryExists = categories.some(c => c.id === marqueeSelectedCategoryId);
+      if (!categoryExists) {
+        marqueeSelectedCategoryId = null;
+        saveSelectedCategory(null);
+      }
+    }
+    
+    // 并行加载数据
+    await Promise.all([
+      loadAllFeeds(),
+      loadAllArticles(true),
+      loadMarqueeArticles()
+    ]);
   });
 
+  // 主文章列表数据处理
   $: allArticles = rawArticles
     .filter(a => a?.id && a.title && a.published_at)
     .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+
+  // 跑马灯文章数据处理
+  $: processedMarqueeArticles = marqueeArticles
+    .filter(a => a?.id && a.title && a.published_at)
+    .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
+
+  $: {
+    console.log(`Computed articles - Main list: ${allArticles.length}, Marquee: ${processedMarqueeArticles.length}, selected category: ${marqueeSelectedCategoryId}`);
+  }
 
   function handleFeedSelect(event) {
     selectedFeedId = event.detail.feedId;
@@ -107,13 +254,24 @@
   </header>
 
   <section class="marquee-container">
-    {#if loading && page === 0}
+    <div class="marquee-controls">
+      <select on:change={handleMarqueeCategoryChange} class="category-select">
+        <option value="">🌐 所有分类</option>
+        {#each categories as category, i}
+          <option value={category.id} style="background-color: {getCategoryColor(i)};" 
+                  selected={marqueeSelectedCategoryId === category.id}>
+            {getCategoryIcon(i)} {category.name}
+          </option>
+        {/each}
+      </select>
+    </div>
+    {#if marqueeLoading}
       <div class="skeleton-marquee"></div>
     {:else}
-      {#if error}
-        <div class="marquee-error">Marquee load error: {error}</div>
+      {#if marqueeError}
+        <div class="marquee-error">Marquee load error: {marqueeError}</div>
       {/if}
-      <HeadlineMarquee articles={allArticles} />
+      <HeadlineMarquee articles={processedMarqueeArticles} />
     {/if}
   </section>
 
@@ -193,6 +351,46 @@
     border-bottom: 1px solid var(--color-border);
     z-index: 9;
   }
+  
+  .marquee-controls {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 0.5rem;
+  }
+  
+  .category-select {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.9rem;
+    background-color: white;
+    color: var(--color-text);
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l-6-6h12z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    padding-right: 1.5rem;
+    transition: all 0.2s ease;
+  }
+  
+  .category-select:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+  }
+  
+  .category-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+  }
+  
+  .category-select option {
+    padding: 8px;
+  }
+  
   .marquee-error {
     color: #d32f2f;
     margin-bottom: var(--spacing);

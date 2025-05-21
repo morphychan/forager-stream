@@ -5,12 +5,25 @@
   // each title scroll duration (seconds)
   const perTitleDuration = 20;
 
+  import { onMount, afterUpdate } from 'svelte';
+  
+  onMount(() => {
+    console.log(`HeadlineMarquee mounted with ${articles.length} articles`);
+  });
+  
+  afterUpdate(() => {
+    console.log(`HeadlineMarquee updated with ${articles.length} articles`);
+    if (articles.length > 0) {
+      console.log(`First article: ${articles[0].title}`);
+    }
+  });
+
   // divide articles into two rows
   $: row1 = articles.filter((_, i) => i % 2 === 0);
   $: row2 = articles.filter((_, i) => i % 2 === 1);
 
-  $: duration1 = `${row1.length * perTitleDuration}s`;
-  $: duration2 = `${row2.length * perTitleDuration}s`;
+  $: duration1 = `${Math.max(1, row1.length) * perTitleDuration}s`;
+  $: duration2 = `${Math.max(1, row2.length) * perTitleDuration}s`;
 
   // pause animation when mouse hover
   let paused = false;
