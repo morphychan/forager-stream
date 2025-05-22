@@ -8,8 +8,8 @@
 
   let selectedFeedId = null;
   let selectedArticle = null;
-  let rawArticles = [];  // 主文章列表的文章
-  let marqueeArticles = []; // 跑马灯的文章
+  let rawArticles = [];  // main article list
+  let marqueeArticles = []; // marquee article list
   let loading = false;
   let marqueeLoading = false;
   let error = null;
@@ -25,40 +25,40 @@
   let categories = [];
   let categoriesLoading = false;
   
-  // 分类颜色和图标
+  // category colors and icons
   const categoryColors = [
-    '#f0f7ff', // 浅蓝色
-    '#fff0f0', // 浅红色
-    '#f0fff0', // 浅绿色
-    '#fff0ff', // 浅紫色
-    '#fffff0', // 浅黄色
-    '#f0ffff', // 浅青色
-    '#f5f5f5', // 浅灰色
-    '#e6f7ff', // 天蓝色
+    '#f0f7ff', // light blue
+    '#fff0f0', // light red
+    '#f0fff0', // light green
+    '#fff0ff', // light purple
+    '#fffff0', // light yellow
+    '#f0ffff', // light cyan
+    '#f5f5f5', // light gray
+    '#e6f7ff', // light blue
   ];
   
   const categoryIcons = [
-    '📰', // 新闻
-    '💻', // 科技
-    '🔬', // 科学
-    '🎮', // 游戏
-    '📚', // 文学
-    '🎬', // 娱乐
-    '💼', // 商业
-    '🌍', // 国际
+    '📰', // news
+    '💻', // tech
+    '🔬', // science
+    '🎮', // game
+    '📚', // literature
+    '🎬', // entertainment
+    '💼', // business
+    '🌍', // international
   ];
   
-  // 根据索引生成分类颜色
+  // get category color by index
   function getCategoryColor(index) {
     return categoryColors[index % categoryColors.length];
   }
   
-  // 根据索引生成分类图标
+  // get category icon by index
   function getCategoryIcon(index) {
     return categoryIcons[index % categoryIcons.length];
   }
   
-  // 保存和加载用户的分类选择
+  // save and load user selected category
   function saveSelectedCategory(categoryId) {
     try {
       localStorage.setItem('marqueeCategoryId', categoryId || '');
@@ -77,7 +77,7 @@
     }
   }
 
-  // 为主文章列表加载文章
+  // load articles for main article list
   async function loadAllArticles(reset = false) {
     if (reset) {
       page = 0;
@@ -92,7 +92,7 @@
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
     try {
-      // 始终加载所有文章，不按分类过滤
+      // always load all articles, not filtered by category
       console.log('Loading all articles for main list');
       const res = await fetch(`/rss-articles?skip=${page * PAGE_SIZE}&limit=${PAGE_SIZE}`, { signal: controller.signal });
       if (!res.ok) throw new Error(`API returned ${res.status}`);
@@ -119,20 +119,20 @@
     }
   }
 
-  // 为跑马灯加载文章，根据分类过滤
+  // load articles for marquee, filtered by category
   async function loadMarqueeArticles() {
     if (marqueeLoading) return;
     
     marqueeLoading = true;
     marqueeError = null;
     try {
-      // 根据选定的分类加载文章
+      // load articles for marquee, filtered by category
       if (marqueeSelectedCategoryId) {
         console.log(`Loading marquee articles for category ID: ${marqueeSelectedCategoryId}`);
         marqueeArticles = await fetchArticlesByCategory(
           marqueeSelectedCategoryId, 
-          0,  // 从头开始
-          PAGE_SIZE  // 使用与主列表相同的页面大小，不限制数量
+          0,  // start from the beginning
+          PAGE_SIZE  // use the same page size as main list, no limit
         );
       } else {
         console.log('Loading all articles for marquee');
@@ -179,30 +179,32 @@
     console.log(`Selected marquee category ID: ${categoryId}`);
     if (marqueeSelectedCategoryId !== categoryId) {
       marqueeSelectedCategoryId = categoryId;
-      // 保存用户选择
+      // save user selected category
       saveSelectedCategory(categoryId);
       console.log(`Switching marquee to category ID: ${marqueeSelectedCategoryId}`);
-      loadMarqueeArticles(); // 只重新加载跑马灯的文章
+      loadMarqueeArticles(); // only reload marquee articles
     }
   }
 
   function handleScroll(event) {
     const container = event.target;
     const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    if (scrollBottom < 100) { // 当距离底部100px时加载更多
+    if (scrollBottom < 100) { // when 100px from bottom, load more
       loadAllArticles();
     }
   }
 
   function handleLoadMore() {
-    loadAllArticles();
+    // Return a boolean indicating if more articles can be loaded
+    // If hasMore is false, it means we've loaded all articles
+    return hasMore ? loadAllArticles() : false;
   }
 
   onMount(async () => {
     await loadCategories();
-    // 加载用户之前保存的分类选择
+    // load user selected category
     marqueeSelectedCategoryId = loadSelectedCategory();
-    // 确保分类ID有效（存在于已加载的分类列表中）
+    // ensure category ID is valid (exists in loaded categories list)
     if (marqueeSelectedCategoryId && categories.length > 0) {
       const categoryExists = categories.some(c => c.id === marqueeSelectedCategoryId);
       if (!categoryExists) {
@@ -211,7 +213,7 @@
       }
     }
     
-    // 并行加载数据
+    // load data in parallel
     await Promise.all([
       loadAllFeeds(),
       loadAllArticles(true),
@@ -219,12 +221,12 @@
     ]);
   });
 
-  // 主文章列表数据处理
+  // main article list data processing
   $: allArticles = rawArticles
     .filter(a => a?.id && a.title && a.published_at)
     .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
 
-  // 跑马灯文章数据处理
+  // marquee article data processing
   $: processedMarqueeArticles = marqueeArticles
     .filter(a => a?.id && a.title && a.published_at)
     .sort((a, b) => new Date(b.published_at).getTime() - new Date(a.published_at).getTime());
@@ -256,7 +258,7 @@
   <section class="marquee-container">
     <div class="marquee-controls">
       <select on:change={handleMarqueeCategoryChange} class="category-select">
-        <option value="">🌐 所有分类</option>
+        <option value="">🌐 All categories</option>
         {#each categories as category, i}
           <option value={category.id} style="background-color: {getCategoryColor(i)};" 
                   selected={marqueeSelectedCategoryId === category.id}>
@@ -434,7 +436,7 @@
     .article-detail { margin: var(--spacing) 0; }
   }
 
-  /* 动态两栏/三栏切换 */
+  /* dynamic two/three column switch */
   .main-content:not(.with-detail) .article-list {
     width: 100%;
   }

@@ -124,9 +124,15 @@
         articleListContainer.scrollTop + articleListContainer.clientHeight >=
         articleListContainer.scrollHeight - 1
       ) {
-        dispatch('loadMore');
-        // Reset to top regardless of content height
-        articleListContainer.scrollTop = 0;
+        // Check if we're at the end of all articles
+        const hasLoadedAllArticles = !dispatch('loadMore');
+        
+        // Only reset to top if we've loaded all articles AND reached the bottom
+        if (hasLoadedAllArticles) {
+          console.log('All articles viewed, resetting to top');
+          articleListContainer.scrollTop = 0;
+        }
+        // Otherwise, don't reset and let new content load and continue scrolling
       } else {
         if (lastTimestamp !== null) {
           const delta = (timestamp - lastTimestamp) / 1000; // 秒
