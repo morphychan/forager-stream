@@ -7,6 +7,7 @@
   import { fetchFeeds, fetchArticlesByCategory } from './lib/api';
 
   let selectedFeedId = null;
+  let selectedCategoryId = null; // New state for selected category
   let selectedArticle = null;
   let rawArticles = [];  // main article list
   let marqueeArticles = []; // marquee article list
@@ -236,8 +237,11 @@
   }
 
   function handleFeedSelect(event) {
-    selectedFeedId = event.detail.feedId;
+    const { feedId, categoryId } = event.detail;
+    selectedFeedId = feedId;
+    selectedCategoryId = categoryId;
     selectedArticle = null;
+    console.log(`Selected feed: ${selectedFeedId}, category: ${selectedCategoryId}`);
   }
 
   function handleArticleSelect(event) {
@@ -285,6 +289,7 @@
       <div class="article-list" on:scroll={handleScroll}>
         <ArticleList
           feedId={selectedFeedId}
+          categoryId={selectedCategoryId}
           allArticles={allArticles}
           paused={!!selectedArticle}
           selectedArticle={selectedArticle}

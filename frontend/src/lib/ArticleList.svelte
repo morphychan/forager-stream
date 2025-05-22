@@ -1,8 +1,9 @@
 <script>
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
-  import { fetchArticlesByFeed, fetchFeedById } from './api';
+  import { fetchArticlesByFeed, fetchFeedById, fetchArticlesByCategory } from './api';
   
   export let feedId = null;
+  export let categoryId = null; // New prop for category filtering
   export let allArticles = [];
   export let paused = false;
   export let selectedArticle = null;
@@ -16,18 +17,47 @@
   let error = null;
   let selectedArticleId = null;
   let articleListContainer;
-  let scrollSpeed = 600; // pixels per second
+  let scrollSpeed = 2000; // 增加滚动速度，从800改为2000 pixels per second
   let lastTimestamp = null;
   let animationFrameId = null;
   let pauseByUser = false;
   let pauseTimeout = null;
   let hoveredArticleId = null;
   
-  $: if (feedId) {
-    loadArticles(feedId);
+  // 跟踪上一次的feedId和categoryId以检测变化
+  let prevFeedId = null;
+  let prevCategoryId = null;
+  
+  // 监听feedId变化
+  $: if (feedId !== prevFeedId) {
+    console.log(`Feed ID changed from ${prevFeedId} to ${feedId}`);
+    prevFeedId = feedId;
+    if (feedId) {
+      console.log(`Loading articles for feed ID: ${feedId}`);
+      loadArticles(feedId);
+    }
   }
   
-  $: selectedArticleId = selectedArticle?.id || null;
+  // 监听categoryId变化
+  $: if (categoryId !== prevCategoryId) {
+    console.log(`Category ID changed from ${prevCategoryId} to ${categoryId}`);
+    prevCategoryId = categoryId;
+    if (categoryId) {
+      console.log(`Loading articles for category ID: ${categoryId}`);
+      loadArticlesByCategory(categoryId);
+    }
+  }
+  
+  // 当文章列表变化时检查并确保自动滚动正在运行
+  $: {
+    if (articles && articles.length > 0) {
+      console.log(`Articles updated, length: ${articles.length}, ensuring auto-scroll is active`);
+      ensureAutoScrollActive();
+    }
+  }
+  
+  // Use a simple approach for selectedArticleId
+  $: selectedArticleId = selectedArticle ? selectedArticle.id : null;
   
   async function loadArticles(id) {
     if (!id) return;
@@ -37,20 +67,77 @@
       error = null;
       selectedArticleId = null;
       
+      // 停止当前的自动滚动
+      stopAutoScroll();
+      
       // load feed info
       feed = await fetchFeedById(id);
       
       // load articles list
       articles = await fetchArticlesByFeed(id);
       
-      // no auto select first article
-      // if (articles.length > 0) {
-      //   selectArticle(articles[0].id);
-      // }
+      console.log(`Loaded ${articles.length} articles for feed ${id}`);
+      // After loading, make sure auto-scroll is reset and working
+      resetScrollPosition();
+      // 确保重新启动自动滚动
+      ensureAutoScrollActive();
     } catch (err) {
       error = err.message;
     } finally {
       loading = false;
+    }
+  }
+
+  // New function to load articles by category
+  async function loadArticlesByCategory(id) {
+    if (!id) return;
+    
+    try {
+      loading = true;
+      error = null;
+      selectedArticleId = null;
+      
+      // 停止当前的自动滚动
+      stopAutoScroll();
+      
+      // Load articles for this category - will return empty array on error
+      articles = await fetchArticlesByCategory(id);
+      
+      console.log(`Loaded ${articles.length} articles for category ${id}`);
+      // After loading, make sure auto-scroll is reset and working
+      resetScrollPosition();
+      // 确保重新启动自动滚动
+      ensureAutoScrollActive();
+    } catch (err) {
+      error = err.message;
+    } finally {
+      loading = false;
+    }
+  }
+  
+  // 确保自动滚动处于活动状态
+  function ensureAutoScrollActive() {
+    if (!enableAutoScroll) return;
+    
+    console.log('Ensuring auto-scroll is active');
+    // 如果没有活动的动画帧，启动一个
+    if (!animationFrameId) {
+      console.log('No active animation frame, starting auto-scroll');
+      startAutoScroll();
+    } else {
+      console.log('Auto-scroll already active');
+    }
+  }
+  
+  // Simpler function to just reset scroll position without messing with auto-scroll
+  function resetScrollPosition() {
+    if (articleListContainer) {
+      console.log('Resetting scroll position to top');
+      articleListContainer.scrollTop = 0;
+      pauseByUser = false; // Reset user pause
+      
+      // 重置lastTimestamp，避免大跳跃
+      lastTimestamp = null;
     }
   }
   
@@ -71,7 +158,7 @@
         console.error('Failed to update article read status');
       } else {
         // Update the article in both lists immediately
-        const article = (feedId ? articles : allArticles).find(a => a.id === articleId);
+        const article = (feedId || categoryId ? articles : allArticles).find(a => a.id === articleId);
         if (article) {
           // Create a new object to trigger reactivity
           const updatedArticle = {
@@ -82,7 +169,7 @@
             }
           };
           
-          if (feedId) {
+          if (feedId || categoryId) {
             articles = articles.map(a => a.id === articleId ? updatedArticle : a);
           } else {
             allArticles = allArticles.map(a => a.id === articleId ? updatedArticle : a);
@@ -99,7 +186,7 @@
   }
 
   function selectArticle(articleId) {
-    const article = (feedId ? articles : allArticles).find(a => a.id === articleId);
+    const article = (feedId || categoryId ? articles : allArticles).find(a => a.id === articleId);
     if (article && !isArticleRead(article)) {
       updateArticleReadStatus(articleId);
     }
@@ -113,30 +200,43 @@
   }
 
   function smoothAutoScroll(timestamp) {
-    if (!articleListContainer) {
+    // 确保我们有容器和文章
+    if (!articleListContainer || (articles.length === 0 && allArticles.length === 0)) {
+      console.log('等待容器或文章加载完成，请求下一帧');
       animationFrameId = requestAnimationFrame(smoothAutoScroll);
       return;
     }
     
-    // Only scroll if not paused by user interaction or external pause flag
+    // 仅在未被用户暂停且外部暂停标志未设置时滚动
     if (!pauseByUser && !paused) {
-      if (
+      // 检查是否已滚动到底部
+      const isAtBottom = 
         articleListContainer.scrollTop + articleListContainer.clientHeight >=
-        articleListContainer.scrollHeight - 1
-      ) {
-        // Check if we're at the end of all articles
+        articleListContainer.scrollHeight - 5; // 使用5像素的阈值
+      
+      if (isAtBottom) {
+        // 尝试加载更多文章
         const hasLoadedAllArticles = !dispatch('loadMore');
         
-        // Only reset to top if we've loaded all articles AND reached the bottom
         if (hasLoadedAllArticles) {
-          console.log('All articles viewed, resetting to top');
+          // 如果已加载所有文章且已到达底部，则重置到顶部
+          console.log('已查看所有文章，重置到顶部');
           articleListContainer.scrollTop = 0;
+          // 重置时间戳，以避免下一帧的大跳跃
+          lastTimestamp = null;
         }
-        // Otherwise, don't reset and let new content load and continue scrolling
       } else {
+        // 平滑滚动
         if (lastTimestamp !== null) {
-          const delta = (timestamp - lastTimestamp) / 1000; // 秒
-          articleListContainer.scrollTop += scrollSpeed * delta;
+          const delta = (timestamp - lastTimestamp) / 1000; // 转换为秒
+          const scrollAmount = scrollSpeed * delta;
+          
+          // 只有当滚动量合理时才滚动（防止浏览器切换标签页后的大跳跃）
+          if (scrollAmount > 0 && scrollAmount < 100) {
+            articleListContainer.scrollTop += scrollAmount;
+          } else {
+            console.log('滚动量异常，跳过此帧', scrollAmount);
+          }
         }
       }
     }
@@ -146,36 +246,38 @@
   }
 
   function startAutoScroll() {
-    if (animationFrameId) return;
+    if (animationFrameId) {
+      console.log('Auto scroll already running, no need to start');
+      return;
+    }
+    console.log('Auto scroll started');
     lastTimestamp = null;
     animationFrameId = requestAnimationFrame(smoothAutoScroll);
-    console.log('Auto scroll started');
   }
 
   function stopAutoScroll() {
     if (animationFrameId) {
+      console.log('Auto scroll stopped');
       cancelAnimationFrame(animationFrameId);
       animationFrameId = null;
+    } else {
+      console.log('Auto scroll already stopped');
     }
   }
 
   // These handlers should be effective immediately
   function handleMouseEnter() {
     pauseByUser = true;
-    // For debugging
     console.log('Mouse entered list - pausing scroll');
   }
   
   function handleMouseLeave() {
     pauseByUser = false;
-    // For debugging
     console.log('Mouse left list - resuming scroll');
   }
 
   function handleUserScroll() {
     pauseByUser = true;
-    // 不停止自动滚动，只是暂停
-    // stopAutoScroll();
     if (pauseTimeout) clearTimeout(pauseTimeout);
     
     pauseTimeout = setTimeout(() => {
@@ -198,16 +300,36 @@
   }
 
   onMount(() => {
-    startAutoScroll();
+    console.log('ArticleList mounted, starting auto-scroll');
+    if (enableAutoScroll) {
+      startAutoScroll();
+    }
+    
+    // 设置一个定期检查，确保自动滚动保持活动状态
+    const autoScrollCheckInterval = setInterval(() => {
+      if (enableAutoScroll && !animationFrameId) {
+        console.log('Auto-scroll check: Restarting stopped auto-scroll');
+        startAutoScroll();
+      }
+    }, 5000);
+    
     return () => {
       stopAutoScroll();
       if (pauseTimeout) clearTimeout(pauseTimeout);
+      clearInterval(autoScrollCheckInterval);
     };
+  });
+  
+  // 当组件更新时，确保自动滚动正在运行
+  onDestroy(() => {
+    console.log('ArticleList component being destroyed');
+    stopAutoScroll();
+    if (pauseTimeout) clearTimeout(pauseTimeout);
   });
 </script>
 
 <div class="article-container">
-  {#if feedId === null}
+  {#if feedId === null && categoryId === null}
     {#if allArticles.length === 0}
       <div class="empty">
         <p>暂无文章</p>
@@ -250,11 +372,11 @@
     {:else if error}
       <div class="error">
         <p>{error}</p>
-        <button on:click={() => loadArticles(feedId)}>Retry</button>
+        <button on:click={() => feedId ? loadArticles(feedId) : loadArticlesByCategory(categoryId)}>Retry</button>
       </div>
     {:else if articles.length === 0}
       <div class="empty">
-        <p>No articles in this feed</p>
+        <p>No articles in this {feedId ? 'feed' : 'category'}</p>
       </div>
     {:else}
       <div

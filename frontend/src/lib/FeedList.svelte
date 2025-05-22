@@ -12,6 +12,7 @@ const dispatch = createEventDispatcher();
   let categoriesLoading = true;
   let error = null;
   let selectedFeedId = null;
+  let selectedCategoryId = null; // Track the selected category
   let expandedCategoryId = null; // current expanded category id
   let feedsMap = {}; // { categoryId: Feed[] }
   let feedsLoadingMap = {}; // { categoryId: boolean }
@@ -28,7 +29,10 @@ const dispatch = createEventDispatcher();
   function selectFeed(feedId, event) {
     event.stopPropagation(); // Stop the click from bubbling up to parent category
     selectedFeedId = feedId;
-    dispatch('select', { feedId });
+    dispatch('select', { 
+      feedId,
+      categoryId: expandedCategoryId // Send the current category ID
+    });
   }
   
   /** Delete a feed and update the list */
@@ -87,34 +91,35 @@ const dispatch = createEventDispatcher();
 
   async function toggleCategory(categoryId, event) {
     if (expandedCategoryId === categoryId) {
+      // Collapse the category
       expandedCategoryId = null;
+      // When collapsing, we select the category to show all its articles
+      selectedCategoryId = categoryId;
+      selectedFeedId = null;
+      dispatch('select', { feedId: null, categoryId });
     } else {
+      // Expand the category
       expandedCategoryId = categoryId;
       if (!feedsMap[categoryId]) {
         feedsLoadingMap[categoryId] = true;
         feedsMap[categoryId] = await fetchFeedsByCategory(categoryId);
         feedsLoadingMap[categoryId] = false;
-        
-        // Check if the currently selected feed exists in this category
-        if (selectedFeedId) {
-          const feedExists = feedsMap[categoryId].some(feed => feed.id === selectedFeedId);
-          if (feedExists) {
-            // Keep the feed selected
-          }
-          // Remove the automatic selection of the first feed
-        }
-        // Remove the automatic selection when no feed was previously selected
       }
+      
+      // When expanding a category, also show all its articles
+      selectedCategoryId = categoryId;
+      selectedFeedId = null;
+      dispatch('select', { feedId: null, categoryId });
     }
   }
 
   async function showAllFeeds(event) {
     expandedCategoryId = null;
-    // We no longer need to load allFeeds since "All Feeds" will just be a virtual feed
-    // that directly displays all articles in App.svelte
+    selectedCategoryId = null;
+    selectedFeedId = null;
 
-    // Notify parent that all feeds are selected (null feedId)
-    selectFeed(null, event);
+    // Notify parent that all feeds are selected (null feedId and categoryId)
+    dispatch('select', { feedId: null, categoryId: null });
   }
 
   async function fetchFeedsByCategory(categoryId = null) {
@@ -144,11 +149,11 @@ const dispatch = createEventDispatcher();
     </div>
   {:else}
     <ul class="category-list">
-      <li class="category-item {expandedCategoryId === null ? 'selected' : ''}" on:click={(e) => showAllFeeds(e)}>
+      <li class="category-item {expandedCategoryId === null && !selectedCategoryId ? 'selected' : ''}" on:click={(e) => showAllFeeds(e)}>
         <span>全部 Feed</span>
       </li>
       {#each categories as category}
-        <li class="category-item {expandedCategoryId === category.id ? 'selected' : ''}" on:click={(e) => toggleCategory(category.id, e)}>
+        <li class="category-item {expandedCategoryId === category.id || (!selectedFeedId && selectedCategoryId === category.id) ? 'selected' : ''}" on:click={(e) => toggleCategory(category.id, e)}>
           <span>{category.name}</span>
           {#if expandedCategoryId === category.id}
             {#if feedsLoadingMap[category.id]}
