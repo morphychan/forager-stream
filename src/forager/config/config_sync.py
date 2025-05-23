@@ -71,8 +71,10 @@ class ConfigSynchronizer:
         # First sync categories to get mapping
         category_map = self.sync_categories()
         
-        # Get feeds from config
-        config_feeds = self.config_manager.get_enabled_feeds()
+        # Get ALL feeds from config (both enabled and disabled)
+        self.config_manager.load()
+        self.config_manager.validate()
+        all_config_feeds = self.config_manager._feeds  # Get all feeds, not just enabled ones
         
         # Get existing feeds from database
         db_feeds = self.storage.get_feeds()
@@ -92,36 +94,40 @@ class ConfigSynchronizer:
         
         # Process feeds from config
         config_feed_urls = set()
-        for feed in config_feeds:
+        for feed in all_config_feeds:
             try:
                 config_feed_urls.add(feed.url)
                 category_name = getattr(feed, 'category', None) or 'Default'
                 category_id = category_map.get(category_name.strip(), category_map.get('Default'))
                 
-                if self.debug:
-                    print(f"[DEBUG] Processing feed: {feed.name} ({feed.url}), category: {category_name}")
+                # Determine status based on enabled flag
+                desired_status = "active" if feed.enabled else "disabled"
                 
-                # Process tags
-                feed_tags = getattr(feed, 'tags', []) or []
+                if self.debug:
+                    print(f"[DEBUG] Processing feed: {feed.name} ({feed.url}), category: {category_name}, enabled: {feed.enabled}")
+                
+                # Process tags (only for enabled feeds)
+                feed_tags = getattr(feed, 'tags', []) or [] if feed.enabled else []
                 tag_ids = []
                 
-                # Ensure all tags exist in database
-                for tag_name in feed_tags:
-                    if not tag_name:
-                        continue
-                        
-                    tag_name_lower = tag_name.lower().strip()
-                    if tag_name_lower in db_tags_by_name:
-                        tag_ids.append(db_tags_by_name[tag_name_lower])
-                        if self.debug:
-                            print(f"[DEBUG] Using existing tag: {tag_name} (ID: {db_tags_by_name[tag_name_lower]})")
-                    else:
-                        # Create new tag
-                        new_tag_id = self.storage.create_tag(tag_name)
-                        db_tags_by_name[tag_name_lower] = new_tag_id
-                        tag_ids.append(new_tag_id)
-                        if self.debug:
-                            print(f"[DEBUG] Created new tag: {tag_name} (ID: {new_tag_id})")
+                # Ensure all tags exist in database (only for enabled feeds)
+                if feed.enabled:
+                    for tag_name in feed_tags:
+                        if not tag_name:
+                            continue
+                            
+                        tag_name_lower = tag_name.lower().strip()
+                        if tag_name_lower in db_tags_by_name:
+                            tag_ids.append(db_tags_by_name[tag_name_lower])
+                            if self.debug:
+                                print(f"[DEBUG] Using existing tag: {tag_name} (ID: {db_tags_by_name[tag_name_lower]})")
+                        else:
+                            # Create new tag
+                            new_tag_id = self.storage.create_tag(tag_name)
+                            db_tags_by_name[tag_name_lower] = new_tag_id
+                            tag_ids.append(new_tag_id)
+                            if self.debug:
+                                print(f"[DEBUG] Created new tag: {tag_name} (ID: {new_tag_id})")
                 
                 if feed.url in db_feeds_by_url:
                     # Update existing feed
@@ -154,6 +160,12 @@ class ConfigSynchronizer:
                                 print(f"[DEBUG] Updating feed string_id: {db_feed.get('string_id')} -> {feed.id}")
                                 print(f"[DEBUG] Feed ID in database: {db_feed['id']}")
                     
+                    # Update status based on enabled flag
+                    if desired_status != db_feed['status']:
+                        updates['status'] = desired_status
+                        if self.debug:
+                            print(f"[DEBUG] Updating feed status: {db_feed['status']} -> {desired_status}")
+                    
                     if updates:
                         if self.debug:
                             print(f"[DEBUG] Update details: {updates}")
@@ -168,7 +180,7 @@ class ConfigSynchronizer:
                             # After update, fetch the feed again to verify changes
                             updated_feed = self.storage.get_feed(db_feed['id'])
                             if updated_feed:
-                                print(f"[DEBUG] Feed after update: string_id={updated_feed.get('string_id')}")
+                                print(f"[DEBUG] Feed after update: string_id={updated_feed.get('string_id')}, status={updated_feed.get('status')}")
                             else:
                                 print(f"[DEBUG] Could not retrieve updated feed")
                     else:
@@ -176,26 +188,25 @@ class ConfigSynchronizer:
                         if self.debug:
                             print(f"[DEBUG] Feed properties unchanged: {feed.url}")
                             
-                    # Sync tags
-                    feed_id = db_feed['id']
-                    
-                    # First, remove all existing tags
-                    if tag_ids:
-                        # Get existing tags for this feed
-                        existing_feed_tags = []
-                        try:
-                            # Use SQLiteStorage methods to get feed tags
-                            # For each tag ID, check if it's already associated with the feed
-                            for tag_id in tag_ids:
-                                # Check if tag exists in the feed_tags table for this feed
-                                # If not, add it
-                                self.storage.add_tag_to_feed(feed_id, tag_id)
-                                
-                            if self.debug:
-                                print(f"[DEBUG] Added tags to feed {feed_id}: {tag_ids}")
-                        except Exception as e:
-                            if self.debug:
-                                print(f"[DEBUG] Error syncing tags for feed {feed_id}: {str(e)}")
+                    # Sync tags (only for enabled feeds)
+                    if feed.enabled:
+                        feed_id = db_feed['id']
+                        
+                        # Add tags to the feed
+                        if tag_ids:
+                            try:
+                                # Use SQLiteStorage methods to get feed tags
+                                # For each tag ID, check if it's already associated with the feed
+                                for tag_id in tag_ids:
+                                    # Check if tag exists in the feed_tags table for this feed
+                                    # If not, add it
+                                    self.storage.add_tag_to_feed(feed_id, tag_id)
+                                    
+                                if self.debug:
+                                    print(f"[DEBUG] Added tags to feed {feed_id}: {tag_ids}")
+                            except Exception as e:
+                                if self.debug:
+                                    print(f"[DEBUG] Error syncing tags for feed {feed_id}: {str(e)}")
                 else:
                     # Create new feed
                     feed_id = self.storage.create_feed(
@@ -203,7 +214,7 @@ class ConfigSynchronizer:
                         name=feed.name,
                         url=feed.url,
                         poll_interval=feed.interval,
-                        status="active"
+                        status=desired_status
                     )
                     
                     # Set string_id using the feed's id from config
@@ -214,10 +225,10 @@ class ConfigSynchronizer:
                     
                     results['created'] += 1
                     if self.debug:
-                        print(f"[DEBUG] Created new feed (ID: {feed_id}): {feed.name} ({feed.url})")
+                        print(f"[DEBUG] Created new feed (ID: {feed_id}): {feed.name} ({feed.url}) with status: {desired_status}")
                         
-                    # Add tags to the new feed
-                    if tag_ids:
+                    # Add tags to the new feed (only for enabled feeds)
+                    if feed.enabled and tag_ids:
                         for tag_id in tag_ids:
                             self.storage.add_tag_to_feed(feed_id, tag_id)
                         if self.debug:
