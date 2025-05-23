@@ -56,7 +56,7 @@ class Tag(Base):
 
     # Relationships
     feeds: Mapped[List['RSSFeed']] = relationship(secondary=feed_tags, back_populates='tags')
-    articles: Mapped[List['RSSArticle']] = relationship(secondary=articles_tags, back_populates='articles')
+    articles: Mapped[List['RSSArticle']] = relationship(secondary=articles_tags, back_populates='tags')
 
 
 class RSSFeed(Base):
