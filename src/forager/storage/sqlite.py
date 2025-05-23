@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 from datetime import datetime
+import inspect
 
 from alembic.config import Config
 from alembic import command
@@ -169,7 +170,7 @@ class SQLiteStorage(BaseStorage):
                 cursor.execute(
                     """
                     SELECT id, category_id, name, url, poll_interval, status,
-                           created_at, updated_at, last_error, last_error_at, deleted_at
+                           created_at, updated_at, last_error, last_error_at, deleted_at, string_id
                     FROM rss_feeds WHERE id = ?
                     """,
                     (feed_id,)
@@ -187,7 +188,8 @@ class SQLiteStorage(BaseStorage):
                         "updated_at": row[7],
                         "last_error": row[8],
                         "last_error_at": row[9],
-                        "deleted_at": row[10]
+                        "deleted_at": row[10],
+                        "string_id": row[11]
                     }
                 return None
         except sqlite3.Error as e:
@@ -204,7 +206,7 @@ class SQLiteStorage(BaseStorage):
                 cursor = conn.cursor()
                 query = """
                     SELECT id, category_id, name, url, poll_interval, status,
-                           created_at, updated_at, last_error, last_error_at, deleted_at
+                           created_at, updated_at, last_error, last_error_at, deleted_at, string_id
                     FROM rss_feeds
                     WHERE 1=1
                 """
@@ -234,7 +236,8 @@ class SQLiteStorage(BaseStorage):
                         "updated_at": row[7],
                         "last_error": row[8],
                         "last_error_at": row[9],
-                        "deleted_at": row[10]
+                        "deleted_at": row[10],
+                        "string_id": row[11]
                     }
                     for row in cursor.fetchall()
                 ]
@@ -242,28 +245,67 @@ class SQLiteStorage(BaseStorage):
             raise StorageError(f"Failed to get feeds: {e}")
 
     def update_feed(self, feed_id: int, updates: Dict[str, Any]) -> bool:
+        """Update feed properties.
+        
+        Args:
+            feed_id: ID of the feed to update
+            updates: Dict of properties to update
+            
+        Returns:
+            True if update succeeded, False otherwise
+        """
+        # Get debug mode from calling context if possible
+        debug = False
+        for frame in inspect.stack():
+            if 'self' in frame.frame.f_locals and hasattr(frame.frame.f_locals['self'], 'debug'):
+                debug = frame.frame.f_locals['self'].debug
+                break
+        
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
                 set_clauses = []
                 params = []
                 
+                # Print column names of the table if in debug mode
+                if debug:
+                    try:
+                        cursor.execute("PRAGMA table_info(rss_feeds)")
+                        columns = cursor.fetchall()
+                        column_names = [col[1] for col in columns]
+                        print(f"[DEBUG SQL] Available columns in rss_feeds: {column_names}")
+                    except Exception as e:
+                        print(f"[DEBUG SQL] Error getting table info: {e}")
+                
                 for key, value in updates.items():
-                    if key in ['name', 'category_id', 'url', 'poll_interval', 'status']:
+                    # Expand the list of allowed fields to include string_id
+                    if key in ['name', 'category_id', 'url', 'poll_interval', 'status', 'string_id']:
                         set_clauses.append(f"{key} = ?")
                         params.append(value)
+                        if debug:
+                            print(f"[DEBUG SQL] Adding update for {key}={value}")
                 
                 if not set_clauses:
+                    if debug:
+                        print(f"[DEBUG SQL] No valid fields to update")
                     return False
                 
                 query = f"UPDATE rss_feeds SET {', '.join(set_clauses)} WHERE id = ?"
                 params.append(feed_id)
                 
+                if debug:
+                    print(f"[DEBUG SQL] Executing: {query} with params {params}")
                 cursor.execute(query, params)
                 conn.commit()
-                return cursor.rowcount > 0
+                affected = cursor.rowcount > 0
+                if debug:
+                    print(f"[DEBUG SQL] Update affected {cursor.rowcount} rows")
+                return affected
         except sqlite3.Error as e:
-            raise StorageError(f"Failed to update feed: {e}")
+            error_msg = f"Failed to update feed: {e}"
+            if debug:
+                print(f"[DEBUG SQL] Error: {error_msg}")
+            raise StorageError(error_msg)
 
     def delete_feed(self, feed_id: int, hard_delete: bool = False) -> bool:
         try:

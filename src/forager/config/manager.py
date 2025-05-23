@@ -2,9 +2,9 @@
 Configuration management module for Forager.
 """
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Set
 import yaml
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import timedelta
 
 @dataclass
@@ -16,6 +16,8 @@ class FeedConfig:
     interval: int
     enabled: bool
     category: Optional[str] = None
+    string_id: Optional[str] = None
+    tags: List[str] = field(default_factory=list)
 
 class ConfigError(Exception):
     """Base exception for configuration errors."""
@@ -76,7 +78,9 @@ class ConfigManager:
                     url=feed['url'],
                     interval=int(feed['interval']),
                     enabled=bool(feed['enabled']),
-                    category=feed.get('category')
+                    category=feed.get('category'),
+                    string_id=feed.get('string_id'),
+                    tags=feed.get('tags', [])
                 ))
             except (ValueError, TypeError) as e:
                 raise ConfigValidationError(

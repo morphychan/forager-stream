@@ -5,6 +5,7 @@ from pathlib import Path
 import datetime
 from forager.storage.sqlite import SQLiteStorage
 from forager.config.manager import ConfigManager, ConfigError
+from forager.config.config_sync import ConfigSynchronizer
 from forager.input.preprocessor import URLPreprocessor
 from forager.utils.feed_parser_adapter import FeedParserAdapter
 from forager.utils.date_utils import parse_date_flexible
@@ -357,23 +358,11 @@ class RSSFetcher:
     def sync_categories_from_config(cls, config_feeds, storage) -> dict:
         """
         Make sure all categories in the config are inserted into the database, and return a mapping of {category name: category ID}.
+        
+        Note: This method is kept for backwards compatibility. New code should use ConfigSynchronizer instead.
         """
-        # compatible with both objects and dicts
-        category_names = set(
-            getattr(feed, 'category', None) or (feed.get('category') if isinstance(feed, dict) else None) or 'Default'
-            for feed in config_feeds
-        )
-        category_names = set(name.strip() for name in category_names)
-        # query existing categories in the database
-        db_categories = storage.get_categories()  # [{'id': 1, 'name': 'Default'}, ...]
-        db_category_map = {c['name']: c['id'] for c in db_categories}
-        # insert missing categories
-        for name in category_names:
-            if name not in db_category_map:
-                new_id = storage.create_category(name)
-                db_category_map[name] = new_id
-        print(f"[INFO] Syncing categories from config: {category_names}")
-        return db_category_map
+        # Use the new ConfigSynchronizer class for implementation
+        return ConfigSynchronizer.sync_categories_from_config(config_feeds, storage)
 
     @classmethod
     def process_feeds_from_config(cls, config_path: Path, storage: SQLiteStorage, user_agent: Optional[str] = None, debug: bool = False) -> Dict[str, int]:
@@ -389,14 +378,20 @@ class RSSFetcher:
                 print(f"[DEBUG] Found {len(feeds)} enabled feeds in config")
                 for i, feed in enumerate(feeds):
                     print(f"[DEBUG] Feed {i+1}: {feed.name} - {feed.url}")
-            # 分类同步
+            
+            # 分类同步 - 使用新的ConfigSynchronizer
             feed_dicts = [feed.__dict__ if hasattr(feed, '__dict__') else feed for feed in feeds]
-            category_map = cls.sync_categories_from_config(feed_dicts, storage)
+            
+            # 创建ConfigSynchronizer实例进行分类同步
+            config_sync = ConfigSynchronizer(config_path, storage, debug=debug)
+            category_map = config_sync.sync_categories()
+            
             # create a shared feed parser to reuse the HTTP session
             if debug:
                 print("[DEBUG] Creating shared feed parser")
             feed_parser = FeedParserAdapter.create_with_defaults(user_agent=user_agent)
             results = {}
+            
             for i, feed in enumerate(feeds):
                 if debug:
                     print(f"\n[DEBUG] Processing feed {i+1}/{len(feeds)}: {feed.name} ({feed.url})")
