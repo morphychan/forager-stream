@@ -56,7 +56,7 @@ class Tag(Base):
 
     # Relationships
     feeds: Mapped[List['RSSFeed']] = relationship(secondary=feed_tags, back_populates='tags')
-    articles: Mapped[List['RSSArticle']] = relationship(secondary=articles_tags, back_populates='tags')
+    articles: Mapped[List['RSSArticle']] = relationship(secondary=articles_tags, back_populates='articles')
 
 
 class RSSFeed(Base):
@@ -64,6 +64,7 @@ class RSSFeed(Base):
     __tablename__ = 'rss_feeds'
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    string_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True)
     category_id: Mapped[int] = mapped_column(ForeignKey('categories.id', ondelete='CASCADE'), nullable=False)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     url: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
