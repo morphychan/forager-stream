@@ -10,9 +10,19 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from api.deps import get_db
-from src.forager.storage.models import RSSArticle, RSSFeed
+from src.forager.storage.models import RSSArticle, RSSFeed, Tag
 
 # Pydantic models
+class TagInDB(BaseModel):
+    """Schema for tag data from database."""
+    id: int
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
 class ArticleBase(BaseModel):
     """Base model for article data."""
     title: str = Field(..., description="Article title")
@@ -29,6 +39,7 @@ class ArticleInDB(ArticleBase):
     summary: Optional[str] = None
     content: Optional[str] = None
     manual_labels: Optional[Dict[str, Any]] = None
+    tags: List[TagInDB] = []
     
     class Config:
         from_attributes = True
@@ -47,6 +58,7 @@ def list_articles(
     limit: int = Query(100, description="Maximum number of items to return"),
     feed_id: Optional[int] = Query(None, description="Filter by feed ID"),
     category_id: Optional[int] = Query(None, description="Filter by category ID"),
+    tag_ids: Optional[List[int]] = Query(None, description="Filter by tag IDs (articles must have ALL specified tags)"),
     status: Optional[str] = Query(None, description="Filter by article status"),
     before_date: Optional[datetime] = Query(None, description="Filter articles published before this date"),
     after_date: Optional[datetime] = Query(None, description="Filter articles published after this date")
@@ -54,7 +66,7 @@ def list_articles(
     """
     Retrieve RSS articles with pagination and filtering options.
     """
-    print(f"[API] Fetching articles with skip={skip}, limit={limit}, feed_id={feed_id}, category_id={category_id}, status={status}")
+    print(f"[API] Fetching articles with skip={skip}, limit={limit}, feed_id={feed_id}, category_id={category_id}, tag_ids={tag_ids}, status={status}")
     
     # Create base query
     query = db.query(RSSArticle)
@@ -64,6 +76,10 @@ def list_articles(
         query = query.filter(RSSArticle.feed_id == feed_id)
     if category_id is not None:
         query = query.join(RSSFeed, RSSArticle.feed_id == RSSFeed.id).filter(RSSFeed.category_id == category_id)
+    if tag_ids is not None and len(tag_ids) > 0:
+        # Filter articles that have ALL specified tags
+        for tag_id in tag_ids:
+            query = query.filter(RSSArticle.tags.any(Tag.id == tag_id))
     if status is not None:
         query = query.filter(RSSArticle.status == status)
     if before_date is not None:
@@ -215,3 +231,161 @@ def update_article(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update article: {str(e)}"
         )
+
+@router.post("/{article_id}/tags/{tag_id}", response_model=ArticleInDB, summary="Add a tag to an article")
+def add_tag_to_article(
+    article_id: int = Path(..., description="ID of the article"),
+    tag_id: int = Path(..., description="ID of the tag to add"),
+    db: Session = Depends(get_db)
+):
+    """
+    Add a tag to an article.
+    
+    Args:
+        article_id: ID of the article
+        tag_id: ID of the tag to add
+        db: Database session dependency
+        
+    Returns:
+        Updated article object
+        
+    Raises:
+        HTTPException: If article or tag not found, or operation fails
+    """
+    print(f"[API] Adding tag {tag_id} to article {article_id}")
+    
+    # Find the article
+    article = db.query(RSSArticle).filter(
+        RSSArticle.id == article_id,
+        RSSArticle.deleted_at.is_(None)
+    ).first()
+    
+    if not article:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Article with ID {article_id} not found"
+        )
+    
+    # Find the tag
+    tag = db.query(Tag).filter(Tag.id == tag_id).first()
+    if not tag:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tag with ID {tag_id} not found"
+        )
+    
+    # Check if tag is already associated with article
+    if tag in article.tags:
+        return article  # Tag already associated, return article as is
+    
+    # Add tag to article
+    article.tags.append(tag)
+    
+    try:
+        db.commit()
+        db.refresh(article)
+        print(f"[API] Successfully added tag {tag_id} to article {article_id}")
+        return article
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"[API] Error adding tag to article: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to add tag to article"
+        )
+
+@router.delete("/{article_id}/tags/{tag_id}", response_model=ArticleInDB, summary="Remove a tag from an article")
+def remove_tag_from_article(
+    article_id: int = Path(..., description="ID of the article"),
+    tag_id: int = Path(..., description="ID of the tag to remove"),
+    db: Session = Depends(get_db)
+):
+    """
+    Remove a tag from an article.
+    
+    Args:
+        article_id: ID of the article
+        tag_id: ID of the tag to remove
+        db: Database session dependency
+        
+    Returns:
+        Updated article object
+        
+    Raises:
+        HTTPException: If article or tag not found, or operation fails
+    """
+    print(f"[API] Removing tag {tag_id} from article {article_id}")
+    
+    # Find the article
+    article = db.query(RSSArticle).filter(
+        RSSArticle.id == article_id,
+        RSSArticle.deleted_at.is_(None)
+    ).first()
+    
+    if not article:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Article with ID {article_id} not found"
+        )
+    
+    # Find the tag
+    tag = db.query(Tag).filter(Tag.id == tag_id).first()
+    if not tag:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tag with ID {tag_id} not found"
+        )
+    
+    # Check if tag is associated with article
+    if tag not in article.tags:
+        return article  # Tag not associated, return article as is
+    
+    # Remove tag from article
+    article.tags.remove(tag)
+    
+    try:
+        db.commit()
+        db.refresh(article)
+        print(f"[API] Successfully removed tag {tag_id} from article {article_id}")
+        return article
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"[API] Error removing tag from article: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to remove tag from article"
+        )
+
+@router.get("/{article_id}/tags/", response_model=List[TagInDB], summary="Get tags for an article")
+def get_article_tags(
+    article_id: int = Path(..., description="ID of the article"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all tags associated with an article.
+    
+    Args:
+        article_id: ID of the article
+        db: Database session dependency
+        
+    Returns:
+        List of tags associated with the article
+        
+    Raises:
+        HTTPException: If article not found
+    """
+    print(f"[API] Fetching tags for article {article_id}")
+    
+    # Find the article
+    article = db.query(RSSArticle).filter(
+        RSSArticle.id == article_id,
+        RSSArticle.deleted_at.is_(None)
+    ).first()
+    
+    if not article:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Article with ID {article_id} not found"
+        )
+    
+    return article.tags

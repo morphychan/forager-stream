@@ -26,7 +26,7 @@ class TagInDB(TagBase):
     updated_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class FeedBase(BaseModel):
     """Base Pydantic schema with common feed attributes."""
@@ -100,7 +100,7 @@ class FeedInDB(FeedBase):
     tags: List[TagInDB] = []
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class CategoryInDB(BaseModel):
     id: int
@@ -108,7 +108,11 @@ class CategoryInDB(BaseModel):
     created_at: datetime
     updated_at: datetime
     class Config:
-        orm_mode = True
+        from_attributes = True
+
+class TagUpdate(BaseModel):
+    """Schema for updating an existing tag."""
+    name: str = Field(..., description="Updated name of the tag", example="technology")
 
 # Router
 router = APIRouter()
@@ -682,4 +686,102 @@ def remove_tag_from_feed(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to remove tag from feed"
+        )
+
+@router.put("/tags/{tag_id}", response_model=TagInDB, summary="Update a tag")
+def update_tag(
+    tag_id: int = Path(..., description="ID of the tag to update"),
+    tag_update: TagUpdate = ...,
+    db: Session = Depends(get_db)
+):
+    """
+    Update an existing tag.
+    
+    Args:
+        tag_id: ID of the tag to update
+        tag_update: Updated tag data
+        db: Database session dependency
+        
+    Returns:
+        Updated tag object
+        
+    Raises:
+        HTTPException: If tag not found or update fails
+    """
+    print(f"[API] Updating tag with ID {tag_id}: {tag_update.dict()}")
+    
+    # Find the tag
+    tag = db.query(Tag).filter(Tag.id == tag_id).first()
+    if not tag:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tag with ID {tag_id} not found"
+        )
+    
+    # Check if new name already exists (for another tag)
+    existing_tag = db.query(Tag).filter(
+        Tag.name == tag_update.name,
+        Tag.id != tag_id
+    ).first()
+    if existing_tag:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Tag with name '{tag_update.name}' already exists"
+        )
+    
+    # Update tag
+    tag.name = tag_update.name
+    
+    try:
+        db.commit()
+        db.refresh(tag)
+        print(f"[API] Successfully updated tag {tag_id}")
+        return tag
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"[API] Error updating tag: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update tag"
+        )
+
+@router.delete("/tags/{tag_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a tag")
+def delete_tag(
+    tag_id: int = Path(..., description="ID of the tag to delete"),
+    db: Session = Depends(get_db)
+):
+    """
+    Delete a tag. This will also remove all associations with feeds and articles.
+    
+    Args:
+        tag_id: ID of the tag to delete
+        db: Database session dependency
+        
+    Returns:
+        No content
+        
+    Raises:
+        HTTPException: If tag not found or deletion fails
+    """
+    print(f"[API] Deleting tag with ID {tag_id}")
+    
+    # Find the tag
+    tag = db.query(Tag).filter(Tag.id == tag_id).first()
+    if not tag:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Tag with ID {tag_id} not found"
+        )
+    
+    try:
+        db.delete(tag)
+        db.commit()
+        print(f"[API] Successfully deleted tag {tag_id}")
+        return None
+    except SQLAlchemyError as e:
+        db.rollback()
+        print(f"[API] Error deleting tag: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete tag"
         )
