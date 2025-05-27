@@ -11,7 +11,7 @@
   
   async function handleSubmit() {
     if (!url.trim()) {
-      error = '请输入RSS订阅源URL';
+      error = 'Please enter an RSS feed URL';
       return;
     }
     
@@ -21,11 +21,11 @@
       
       await createFeed({ url: url.trim() });
       
-      // 重置表单
+      // Reset form
       url = '';
       showForm = false;
       
-      // 通知父组件刷新订阅源列表
+      // Notify parent component to refresh the feed list
       dispatch('feedAdded');
       
     } catch (err) {
@@ -38,7 +38,7 @@
   function toggleForm() {
     showForm = !showForm;
     if (!showForm) {
-      // 重置表单状态
+      // Reset form state
       url = '';
       error = null;
     }
@@ -47,7 +47,7 @@
 
 <div class="add-feed">
   <button class="add-btn" on:click={toggleForm}>
-    {showForm ? '取消' : '添加订阅源'}
+    {showForm ? 'Cancel' : 'Add Feed'}
   </button>
   
   {#if showForm}
@@ -55,12 +55,12 @@
       <form on:submit|preventDefault={handleSubmit}>
         <input 
           type="url" 
-          placeholder="输入RSS订阅源URL" 
+          placeholder="Enter RSS feed URL" 
           bind:value={url}
           disabled={loading}
         />
         <button type="submit" disabled={loading}>
-          {loading ? '添加中...' : '添加'}
+          {loading ? 'Adding...' : 'Add'}
         </button>
       </form>
       

@@ -5,7 +5,6 @@
   // @ts-nocheck
   import { createEventDispatcher, onMount } from 'svelte';
   import { deleteFeed } from './api';
-import AddFeed from './AddFeed.svelte';
 
 const dispatch = createEventDispatcher();
   let categories = [];
@@ -23,7 +22,7 @@ const dispatch = createEventDispatcher();
     await loadCategories();
   });
   
-    // 该函数已由 fetchFeedsByCategory 替代
+    // This function has been replaced by fetchFeedsByCategory
   
   /** Mark a feed as selected and notify parent */
   function selectFeed(feedId, event) {
@@ -64,18 +63,8 @@ const dispatch = createEventDispatcher();
       alert(`Failed to delete: ${err.message}`);
     }
   }
-  
-  /** Refresh list when a new feed is added */
-  async function handleFeedAdded() {
-    // Only refresh feeds for the current category if one is expanded
-    if (expandedCategoryId !== null) {
-      feedsMap[expandedCategoryId] = await fetchFeedsByCategory(expandedCategoryId);
-    }
-    // For "All Feeds" (virtual feed), no need to refresh anything as it will 
-    // show all articles regardless of feed
-  }
 
-  // 获取所有分类
+  // Get all categories
   async function loadCategories() {
     try {
       categoriesLoading = true;
@@ -128,7 +117,7 @@ const dispatch = createEventDispatcher();
       url += `?category_id=${categoryId}`;
     }
     const response = await fetch(url);
-    if (!response.ok) throw new Error('获取RSS订阅源失败');
+    if (!response.ok) throw new Error('Failed to fetch RSS feeds');
     return await response.json();
   }
 </script>
@@ -137,8 +126,6 @@ const dispatch = createEventDispatcher();
   <header class="feed-header">
     <h2>RSS Feeds</h2>
   </header>
-  
-  <AddFeed on:feedAdded={handleFeedAdded} />
   
   {#if categoriesLoading}
     <div class="status-message">Loading...</div>
@@ -150,11 +137,11 @@ const dispatch = createEventDispatcher();
   {:else}
     <ul class="category-list">
       <li class="category-item {expandedCategoryId === null && !selectedCategoryId ? 'selected' : ''}" on:click={(e) => showAllFeeds(e)}>
-        <span>全部 Feed</span>
+        <span>All Feeds</span>
       </li>
       {#each categories as category}
         <li class="category-item {expandedCategoryId === category.id || (!selectedFeedId && selectedCategoryId === category.id) ? 'selected' : ''}" on:click={(e) => toggleCategory(category.id, e)}>
-          <span>{category.name}</span>
+          <span>{category.name.charAt(0).toUpperCase() + category.name.slice(1)}</span>
           {#if expandedCategoryId === category.id}
             {#if feedsLoadingMap[category.id]}
               <div class="status-message">Loading...</div>
@@ -331,14 +318,7 @@ const dispatch = createEventDispatcher();
     outline: none;
   }
 
-  /* AddFeed按钮样式微调 */
-  :global(.add-feed-btn) {
-    margin-bottom: 1.2rem;
-    width: 100%;
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-elevation-1);
-  }
-
+  /* Remove AddFeed button styles */
   @media (max-width: 700px) {
     .feed-list {
       min-width: 100vw;

@@ -484,6 +484,7 @@
     border-radius: 4px;
     white-space: nowrap;
     flex-shrink: 0;
+    font-style: italic;
   }
   .article-summary {
     margin: 0;

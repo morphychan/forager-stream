@@ -1,5 +1,5 @@
 // API base URL
-const API_BASE_URL = '';  // 使用相对路径，以便与前端服务代理一致
+const API_BASE_URL = '';  // Using relative path to work with frontend service proxy
 
 export async function fetchFeeds() {
   const response = await fetch(`${API_BASE_URL}/rss-feeds/`);
