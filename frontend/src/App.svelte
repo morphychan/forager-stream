@@ -4,6 +4,7 @@
   import ArticleList from './lib/ArticleList.svelte';
   import ArticleDetail from './lib/ArticleDetail.svelte';
   import HeadlineMarquee from './lib/HeadlineMarquee.svelte';
+  import ResizablePanels from './lib/ResizablePanels.svelte';
   import { fetchFeeds, fetchArticlesByCategory } from './lib/api';
 
   let selectedFeedId = null;
@@ -281,31 +282,33 @@
   -->
 
   <div class="layout">
-    <aside class="sidebar">
-      <FeedList on:select={handleFeedSelect} />
-    </aside>
-    <section class="main-content {selectedArticle ? 'with-detail' : ''}">
-      <div class="article-list">
-        <ArticleList
-          feedId={selectedFeedId}
-          categoryId={selectedCategoryId}
-          allArticles={allArticles}
-          paused={!!selectedArticle}
-          selectedArticle={selectedArticle}
-          feedMap={feedMap}
-          on:select={handleArticleSelect}
-          on:loadMore={handleLoadMore}
-        />
-        {#if loading && page > 0}
-          <div class="loading-more">Loading more articles...</div>
+    <ResizablePanels leftMinWidth={180} rightMinWidth={400} initialLeftWidth={220}>
+      <div slot="left" class="sidebar">
+        <FeedList on:select={handleFeedSelect} />
+      </div>
+      <div slot="right" class="main-content {selectedArticle ? 'with-detail' : ''}">
+        <div class="article-list">
+          <ArticleList
+            feedId={selectedFeedId}
+            categoryId={selectedCategoryId}
+            allArticles={allArticles}
+            paused={!!selectedArticle}
+            selectedArticle={selectedArticle}
+            feedMap={feedMap}
+            on:select={handleArticleSelect}
+            on:loadMore={handleLoadMore}
+          />
+          {#if loading && page > 0}
+            <div class="loading-more">Loading more articles...</div>
+          {/if}
+        </div>
+        {#if selectedArticle}
+          <div class="article-detail">
+            <ArticleDetail article={selectedArticle} on:close={() => selectedArticle = null} />
+          </div>
         {/if}
       </div>
-      {#if selectedArticle}
-        <div class="article-detail">
-          <ArticleDetail article={selectedArticle} on:close={() => selectedArticle = null} />
-        </div>
-      {/if}
-    </section>
+    </ResizablePanels>
   </div>
 </main>
 
@@ -323,7 +326,7 @@
   }
 
   :global(html) {
-    font-size: 70%;
+    font-size: 100%;
   }
 
   :global(body) {
@@ -405,10 +408,8 @@
 
   .layout { flex: 1; display: flex; overflow: hidden; }
   .sidebar {
-    width: 260px;
+    height: 100%;
     background: var(--color-surface);
-    border-right: 1px solid var(--color-border);
-    padding: var(--spacing);
     overflow-y: auto;
     overflow-x: hidden;
   }

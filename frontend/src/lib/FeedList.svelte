@@ -182,22 +182,22 @@ const dispatch = createEventDispatcher();
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
-    border-right: 1px solid var(--color-border);
-    padding: 1.2rem 0.75rem 1.2rem 0.75rem;
+    padding: 1rem 0.6rem;
     background: var(--color-surface);
     font-family: var(--font-family);
-    min-width: 270px;
+    min-width: 180px;
+    max-width: 300px;
   }
 
   .feed-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1.2rem;
+    margin-bottom: 1rem;
   }
 
   .feed-header h2 {
-    font-size: var(--font-size-lg);
+    font-size: 1.1rem;
     color: var(--color-text-primary);
     font-weight: 700;
     letter-spacing: 1px;
@@ -255,7 +255,7 @@ const dispatch = createEventDispatcher();
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.85rem 1rem;
+    padding: 0.7rem 0.8rem;
     background: #fff;
     border-radius: var(--radius);
     box-shadow: var(--shadow-elevation-1);
@@ -284,7 +284,7 @@ const dispatch = createEventDispatcher();
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: var(--font-size-lg);
+    font-size: 1rem;
     letter-spacing: 0.2px;
   }
 
@@ -346,7 +346,7 @@ const dispatch = createEventDispatcher();
     gap: 0.3rem;
   }
   .category-item {
-    padding: 0.5rem 1rem;
+    padding: 0.4rem 0.8rem;
     border-radius: var(--radius);
     cursor: pointer;
     background: #f5f7fa;
@@ -356,6 +356,7 @@ const dispatch = createEventDispatcher();
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-size: 1rem;
   }
   .category-item.selected {
     background: linear-gradient(90deg, #e3f0ff 60%, #f7fafd 100%);
