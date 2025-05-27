@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import { createEventDispatcher } from 'svelte';
   import { fetchArticlesByFeed, fetchFeedById, fetchArticlesByCategory } from './api';
   
   export let feedId = null;
@@ -8,7 +8,6 @@
   export let paused = false;
   export let selectedArticle = null;
   export let feedMap = {};
-  export let enableAutoScroll = true; // default auto scroll
   
   const dispatch = createEventDispatcher();
   let articles = [];
@@ -17,12 +16,6 @@
   let error = null;
   let selectedArticleId = null;
   let articleListContainer;
-  let scrollSpeed = 1000; // pixels per second
-  let lastTimestamp = null;
-  let animationFrameId = null;
-  let pauseByUser = false;
-  let pauseTimeout = null;
-  let hoveredArticleId = null;
   
   // track previous feedId and categoryId to detect changes
   let prevFeedId = null;
@@ -57,14 +50,6 @@
     }
   }
   
-  // when article list changes, check and ensure auto scroll is running
-  $: {
-    if (articles && articles.length > 0) {
-      console.log(`Articles updated, length: ${articles.length}, ensuring auto-scroll is active`);
-      ensureAutoScrollActive();
-    }
-  }
-  
   // Use a simple approach for selectedArticleId
   $: selectedArticleId = selectedArticle ? selectedArticle.id : null;
   
@@ -76,9 +61,6 @@
       error = null;
       selectedArticleId = null;
       
-      // stop current auto scroll
-      stopAutoScroll();
-      
       // load feed info
       feed = await fetchFeedById(id);
       
@@ -86,10 +68,11 @@
       articles = await fetchArticlesByFeed(id);
       
       console.log(`Loaded ${articles.length} articles for feed ${id}`);
-      // After loading, make sure auto-scroll is reset and working
-      resetScrollPosition();
-      // ensure auto scroll is active
-      ensureAutoScrollActive();
+      
+      // Reset scroll position to top
+      if (articleListContainer) {
+        articleListContainer.scrollTop = 0;
+      }
     } catch (err) {
       error = err.message;
     } finally {
@@ -106,8 +89,6 @@
       if (!loadMore) {
         error = null;
         selectedArticleId = null;
-        // stop current auto scroll
-        stopAutoScroll();
       }
       
       const PAGE_SIZE = 100;
@@ -130,14 +111,13 @@
         articles = [...articles, ...newArticles];
       } else {
         articles = newArticles;
-        // After initial loading, make sure auto-scroll is reset and working
-        resetScrollPosition();
+        // Reset scroll position to top for new category
+        if (articleListContainer) {
+          articleListContainer.scrollTop = 0;
+        }
       }
       
       categoryPage++;
-      
-      // ensure auto scroll is active
-      ensureAutoScrollActive();
       
       return newArticles.length > 0;
     } catch (err) {
@@ -145,32 +125,6 @@
       return false;
     } finally {
       categoryLoading = false;
-    }
-  }
-  
-  // ensure auto scroll is active
-  function ensureAutoScrollActive() {
-    if (!enableAutoScroll) return;
-    
-    console.log('Ensuring auto-scroll is active');
-    // if no active animation frame, start auto scroll
-    if (!animationFrameId) {
-      console.log('No active animation frame, starting auto-scroll');
-      startAutoScroll();
-    } else {
-      console.log('Auto-scroll already active');
-    }
-  }
-  
-  // Simpler function to just reset scroll position without messing with auto-scroll
-  function resetScrollPosition() {
-    if (articleListContainer) {
-      console.log('Resetting scroll position to top');
-      articleListContainer.scrollTop = 0;
-      pauseByUser = false; // Reset user pause
-      
-      // reset lastTimestamp, avoid big jump
-      lastTimestamp = null;
     }
   }
   
@@ -231,145 +185,6 @@
     const date = new Date(dateString);
     return date.toLocaleString('zh-CN');
   }
-
-  function smoothAutoScroll(timestamp) {
-    // ensure we have container and articles
-    if (!articleListContainer || (articles.length === 0 && allArticles.length === 0)) {
-      console.log('waiting for container or articles to load, requesting next frame');
-      animationFrameId = requestAnimationFrame(smoothAutoScroll);
-      return;
-    }
-    
-    // only scroll if not paused by user and external pause flag is not set
-    if (!pauseByUser && !paused) {
-      // check if we have scrolled to the bottom
-      const isAtBottom = 
-        articleListContainer.scrollTop + articleListContainer.clientHeight >=
-        articleListContainer.scrollHeight - 5; // use 5 pixels threshold
-      
-      if (isAtBottom) {
-        // try to load more articles
-        let hasLoadedAllArticles = true;
-        
-        if (categoryId) {
-          // For category view, use our pagination method
-          if (hasMoreCategoryArticles && !categoryLoading) {
-            loadArticlesByCategory(categoryId, true);
-            hasLoadedAllArticles = false;
-          }
-        } else {
-          // For other views, use the existing loadMore event
-          hasLoadedAllArticles = !dispatch('loadMore');
-        }
-        
-        if (hasLoadedAllArticles) {
-          // if all articles are loaded and we have scrolled to the bottom, reset to top
-          console.log('all articles are loaded, resetting to top');
-          articleListContainer.scrollTop = 0;
-          // reset timestamp, to avoid big jump in next frame
-          lastTimestamp = null;
-        }
-      } else {
-        // smooth scroll
-        if (lastTimestamp !== null) {
-          const delta = (timestamp - lastTimestamp) / 1000; // convert to seconds
-          const scrollAmount = scrollSpeed * delta;
-          
-          // only scroll if scroll amount is reasonable (prevent big jump when browser switches tabs)
-          if (scrollAmount > 0 && scrollAmount < 100) {
-            articleListContainer.scrollTop += scrollAmount;
-          } else {
-            console.log('scroll amount is abnormal, skipping this frame', scrollAmount);
-          }
-        }
-      }
-    }
-    
-    lastTimestamp = timestamp;
-    animationFrameId = requestAnimationFrame(smoothAutoScroll);
-  }
-
-  function startAutoScroll() {
-    if (animationFrameId) {
-      console.log('Auto scroll already running, no need to start');
-      return;
-    }
-    console.log('Auto scroll started');
-    lastTimestamp = null;
-    animationFrameId = requestAnimationFrame(smoothAutoScroll);
-  }
-
-  function stopAutoScroll() {
-    if (animationFrameId) {
-      console.log('Auto scroll stopped');
-      cancelAnimationFrame(animationFrameId);
-      animationFrameId = null;
-    } else {
-      console.log('Auto scroll already stopped');
-    }
-  }
-
-  // These handlers should be effective immediately
-  function handleMouseEnter() {
-    pauseByUser = true;
-    console.log('Mouse entered list - pausing scroll');
-  }
-  
-  function handleMouseLeave() {
-    pauseByUser = false;
-    console.log('Mouse left list - resuming scroll');
-  }
-
-  function handleUserScroll() {
-    pauseByUser = true;
-    if (pauseTimeout) clearTimeout(pauseTimeout);
-    
-    pauseTimeout = setTimeout(() => {
-      if (!articleListContainer.matches(':hover')) {
-        pauseByUser = false;
-        console.log('Resuming scroll after user interaction');
-      } else {
-        console.log('Not resuming scroll - mouse still in list');
-      }
-    }, 2000); // after user scroll, 2 seconds to resume auto scroll
-  }
-
-  function handleMouseEnterItem(articleId) {
-    hoveredArticleId = articleId;
-  }
-  function handleMouseLeaveItem(articleId) {
-    if (hoveredArticleId === articleId) {
-      hoveredArticleId = null;
-    }
-  }
-
-  onMount(() => {
-    console.log('ArticleList mounted, starting auto-scroll');
-    if (enableAutoScroll) {
-      startAutoScroll();
-    }
-    
-    // set a periodic check to ensure auto scroll is active
-    const autoScrollCheckInterval = setInterval(() => {
-      if (enableAutoScroll && !animationFrameId) {
-        console.log('Auto-scroll check: Restarting stopped auto-scroll');
-        startAutoScroll();
-      }
-    }, 5000);
-    
-    return () => {
-      stopAutoScroll();
-      if (pauseTimeout) clearTimeout(pauseTimeout);
-      clearInterval(autoScrollCheckInterval);
-    };
-  });
-  
-  // when component updates, ensure auto scroll is running
-  onDestroy(() => {
-    console.log('ArticleList component being destroyed');
-    stopAutoScroll();
-    if (pauseTimeout) clearTimeout(pauseTimeout);
-  });
 </script>
 
 <div class="article-container">
@@ -382,19 +197,13 @@
       <div
         class="articles-list"
         bind:this={articleListContainer}
-        on:mouseenter={handleMouseEnter}
-        on:mouseleave={handleMouseLeave}
-        on:wheel={handleUserScroll}
-        on:scroll={handleUserScroll}
         tabindex="0"
         style="outline: none;"
       >
         {#each allArticles as article (article.id)}
           <div 
-            class="article-item {(selectedArticleId === article.id || hoveredArticleId === article.id) ? 'selected' : ''} {isArticleRead(article) ? 'read' : ''}"
+            class="article-item {selectedArticleId === article.id ? 'selected' : ''} {isArticleRead(article) ? 'read' : ''}"
             on:click={() => selectArticle(article.id)}
-            on:mouseenter={() => handleMouseEnterItem(article.id)}
-            on:mouseleave={() => handleMouseLeaveItem(article.id)}
           >
             <div class="article-title-row">
               <h3 class="article-title">{article.title}</h3>
@@ -426,19 +235,13 @@
       <div
         class="articles-list"
         bind:this={articleListContainer}
-        on:mouseenter={handleMouseEnter}
-        on:mouseleave={handleMouseLeave}
-        on:wheel={handleUserScroll}
-        on:scroll={handleUserScroll}
         tabindex="0"
         style="outline: none;"
       >
         {#each articles as article (article.id)}
           <div 
-            class="article-item {(selectedArticleId === article.id || hoveredArticleId === article.id) ? 'selected' : ''} {isArticleRead(article) ? 'read' : ''}"
+            class="article-item {selectedArticleId === article.id ? 'selected' : ''} {isArticleRead(article) ? 'read' : ''}"
             on:click={() => selectArticle(article.id)}
-            on:mouseenter={() => handleMouseEnterItem(article.id)}
-            on:mouseleave={() => handleMouseLeaveItem(article.id)}
           >
             <div class="article-title-row">
               <h3 class="article-title">{article.title}</h3>
@@ -477,8 +280,6 @@
   }
 
   .article-container {
-    /* height: 100%; */
-    /* overflow-y: auto; */
     padding: 1.2rem 1.2rem 1.2rem 1.2rem;
     background: var(--color-surface);
     font-family: var(--font-family);
@@ -577,6 +378,15 @@
     white-space: nowrap;
     flex-shrink: 0;
   }
+  .article-feed {
+    color: var(--color-text-secondary);
+    font-size: 0.7em;
+    background: var(--color-border);
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
   .article-summary {
     margin: 0;
     color: #333;
@@ -597,57 +407,23 @@
     box-shadow: var(--shadow-elevation-1);
     margin: 1.5rem 0.5rem;
   }
-  .error {
-    color: #dc3545;
-    background: #fff0f2;
-  }
-  .empty {
-    color: var(--color-text-secondary);
-    background: #f8fafc;
-  }
-  button {
-    font-size: var(--font-size-sm);
-    padding: 0.4rem 1.1rem;
+  .error button {
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
     background: var(--color-brand);
-    color: #fff;
+    color: white;
     border: none;
     border-radius: var(--radius);
     cursor: pointer;
-    box-shadow: var(--shadow-elevation-1);
-    transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
-    font-weight: 500;
-    outline: none;
-    margin-top: 0.7rem;
+    font-size: var(--font-size-sm);
   }
-  button:hover,
-  button:focus {
+  .error button:hover {
     background: var(--color-brand-hover);
-    box-shadow: var(--shadow-elevation-2);
-    transform: translateY(-2px) scale(1.04);
-  }
-  @media (max-width: 700px) {
-    .article-container {
-      padding: 0.7rem 0.3rem;
-    }
-    .feed-header {
-      margin-bottom: 0.7rem;
-      padding-bottom: 0.3rem;
-    }
-  }
-  body {
-    font-size: 11px;
-  }
-  .article-feed {
-    color: var(--color-text-secondary);
-    font-size: 0.85em;
-    margin: 0 0.7em;
-    font-style: italic;
-    white-space: nowrap;
   }
   .loading-more {
-    padding: 1rem;
     text-align: center;
+    padding: 1rem;
     color: var(--color-text-secondary);
-    font-style: italic;
+    font-size: 0.9rem;
   }
 </style> 

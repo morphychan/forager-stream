@@ -187,13 +187,7 @@
     }
   }
 
-  function handleScroll(event) {
-    const container = event.target;
-    const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    if (scrollBottom < 100) { // when 100px from bottom, load more
-      loadAllArticles();
-    }
-  }
+
 
   function handleLoadMore() {
     // Return a boolean indicating if more articles can be loaded
@@ -259,6 +253,8 @@
     <h1>Forarger Stream</h1>
   </header>
 
+  <!-- Marquee section hidden -->
+  <!--
   <section class="marquee-container">
     <div class="marquee-controls">
       <select on:change={handleMarqueeCategoryChange} class="category-select">
@@ -280,13 +276,14 @@
       <HeadlineMarquee articles={processedMarqueeArticles} />
     {/if}
   </section>
+  -->
 
   <div class="layout">
     <aside class="sidebar">
       <FeedList on:select={handleFeedSelect} />
     </aside>
     <section class="main-content {selectedArticle ? 'with-detail' : ''}">
-      <div class="article-list" on:scroll={handleScroll}>
+      <div class="article-list">
         <ArticleList
           feedId={selectedFeedId}
           categoryId={selectedCategoryId}
