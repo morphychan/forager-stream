@@ -26,13 +26,20 @@
   let hasMoreCategoryArticles = true;
   let categoryLoading = false;
   
+  // pagination for feed articles  
+  let feedPage = 0;
+  let hasMoreFeedArticles = true;
+  let feedLoading = false;
+  
   // track previous feedId and categoryId to detect changes
   $: if (feedId !== prevFeedId) {
     console.log(`Feed ID changed from ${prevFeedId} to ${feedId}`);
     prevFeedId = feedId;
     if (feedId) {
       console.log(`Loading articles for feed ID: ${feedId}`);
-      loadArticles(feedId);
+      // Reset pagination when feed changes
+      articles = [];
+      loadArticlesByFeed(feedId);
     }
   }
   
@@ -51,32 +58,98 @@
   }
   
   // Use a simple approach for selectedArticleId
-  $: selectedArticleId = selectedArticle ? selectedArticle.id : null;
+  $: selectedArticleId = (selectedArticle && typeof selectedArticle === 'object' && 'id' in selectedArticle) ? selectedArticle.id : null;
   
-  async function loadArticles(id) {
-    if (!id) return;
+  // Handle scroll to bottom for loading more articles
+  function handleScroll(event) {
+    const container = event.target;
+    const scrollTop = container.scrollTop;
+    const scrollHeight = container.scrollHeight;
+    const clientHeight = container.clientHeight;
+    const scrollBottom = scrollHeight - scrollTop - clientHeight;
+    
+    console.log(`Scroll event - feedId: ${feedId}, categoryId: ${categoryId}`);
+    
+    // Handle category scroll loading
+    if (categoryId && hasMoreCategoryArticles && !categoryLoading && scrollBottom <= 50) {
+      console.log('Loading more category articles...');
+      loadArticlesByCategory(categoryId, true);
+      return;
+    }
+    
+    // Handle feed scroll loading
+    if (feedId && hasMoreFeedArticles && !feedLoading && scrollBottom <= 50) {
+      console.log('Loading more feed articles...');
+      loadArticlesByFeed(feedId, true);
+      return;
+    }
+    
+    // Handle all articles scroll loading (when neither feedId nor categoryId)
+    if (!feedId && !categoryId && scrollBottom <= 50) {
+      console.log('All articles scroll - dispatching loadMore event');
+      dispatch('loadMore');
+    }
+  }
+
+
+  // Load articles by feed with pagination support
+  async function loadArticlesByFeed(id, loadMore = false) {
+    if (!id || (loadMore && (!hasMoreFeedArticles || feedLoading))) return;
     
     try {
-      loading = true;
-      error = null;
-      selectedArticleId = null;
-      
-      // load feed info
-      feed = await fetchFeedById(id);
-      
-      // load articles list
-      articles = await fetchArticlesByFeed(id);
-      
-      console.log(`Loaded ${articles.length} articles for feed ${id}`);
-      
-      // Reset scroll position to top
-      if (articleListContainer) {
-        articleListContainer.scrollTop = 0;
+      feedLoading = true;
+      if (!loadMore) {
+        loading = true;
+        error = null;
+        selectedArticleId = null;
+        feedPage = 0;
+        hasMoreFeedArticles = true;
+        
+        // Load feed info
+        try {
+          feed = await fetchFeedById(id);
+        } catch (err) {
+          console.warn('Failed to load feed info:', err);
+        }
       }
+      
+      const PAGE_SIZE = 100;
+      const skip = feedPage * PAGE_SIZE;
+      
+      console.log(`Loading feed articles with skip=${skip}, limit=${PAGE_SIZE}`);
+      
+      // Use the updated API function with pagination
+      const newArticles = await fetchArticlesByFeed(id, skip, PAGE_SIZE);
+      
+      console.log(`Loaded ${newArticles.length} articles for feed ${id}`);
+      
+      // Check if we have more articles to load
+      if (newArticles.length < PAGE_SIZE) {
+        hasMoreFeedArticles = false;
+      }
+      
+      // Update articles and page
+      if (loadMore) {
+        articles = [...articles, ...newArticles];
+      } else {
+        articles = newArticles;
+        // Reset scroll position to top for new feed
+        if (articleListContainer) {
+          articleListContainer.scrollTop = 0;
+        }
+      }
+      
+      feedPage++;
+      
+      return newArticles.length > 0;
     } catch (err) {
       error = err.message;
+      return false;
     } finally {
-      loading = false;
+      feedLoading = false;
+      if (!loadMore) {
+        loading = false;
+      }
     }
   }
 
@@ -87,8 +160,11 @@
     try {
       categoryLoading = true;
       if (!loadMore) {
+        loading = true;
         error = null;
         selectedArticleId = null;
+        categoryPage = 0;
+        hasMoreCategoryArticles = true;
       }
       
       const PAGE_SIZE = 100;
@@ -225,7 +301,7 @@
     {:else if error}
       <div class="error">
         <p>{error}</p>
-        <button on:click={() => feedId ? loadArticles(feedId) : loadArticlesByCategory(categoryId)}>Retry</button>
+        <button on:click={() => feedId ? loadArticlesByFeed(feedId) : loadArticlesByCategory(categoryId)}>Retry</button>
       </div>
     {:else if articles.length === 0}
       <div class="empty">
@@ -237,6 +313,7 @@
         bind:this={articleListContainer}
         tabindex="0"
         style="outline: none;"
+        on:scroll={handleScroll}
       >
         {#each articles as article (article.id)}
           <div 
@@ -255,8 +332,28 @@
             </div>
           </div>
         {/each}
-        {#if categoryLoading && categoryPage > 0}
+        {#if (categoryLoading && categoryPage > 0) || (feedLoading && feedPage > 0)}
           <div class="loading-more">Loading more articles...</div>
+        {/if}
+        {#if categoryId && hasMoreCategoryArticles && !categoryLoading}
+          <div class="load-more-section">
+            <button class="load-more-btn" on:click={() => loadArticlesByCategory(categoryId, true)}>
+              Load More Articles
+            </button>
+            <div class="debug-info">
+              <small>Debug: categoryId={categoryId}, hasMore={hasMoreCategoryArticles}, page={categoryPage}</small>
+            </div>
+          </div>
+        {/if}
+        {#if feedId && hasMoreFeedArticles && !feedLoading}
+          <div class="load-more-section">
+            <button class="load-more-btn" on:click={() => loadArticlesByFeed(feedId, true)}>
+              Load More Articles
+            </button>
+            <div class="debug-info">
+              <small>Debug: feedId={feedId}, hasMore={hasMoreFeedArticles}, page={feedPage}</small>
+            </div>
+          </div>
         {/if}
       </div>
     {/if}
@@ -425,5 +522,32 @@
     padding: 1rem;
     color: var(--color-text-secondary);
     font-size: 0.9rem;
+  }
+  
+  .load-more-section {
+    text-align: center;
+    padding: 1rem;
+    border-top: 1px solid var(--color-border);
+    margin-top: 0.5rem;
+  }
+  
+  .load-more-btn {
+    background: var(--color-brand);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+  }
+  
+  .load-more-btn:hover {
+    background: var(--color-brand-hover);
+  }
+  
+  .debug-info {
+    margin-top: 0.5rem;
+    color: var(--color-text-secondary);
   }
 </style> 

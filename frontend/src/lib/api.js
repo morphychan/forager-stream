@@ -17,12 +17,20 @@ export async function fetchFeedById(feedId) {
   return await response.json();
 }
 
-export async function fetchArticlesByFeed(feedId) {
-  const response = await fetch(`${API_BASE_URL}/rss-articles/feed/${feedId}`);
-  if (!response.ok) {
-    throw new Error(`Failed to fetch articles for feed ${feedId}`);
+export async function fetchArticlesByFeed(feedId, skip = 0, limit = 100) {
+  console.log(`Fetching articles for feed ${feedId} with skip=${skip}, limit=${limit}`);
+  try {
+    const response = await fetch(`${API_BASE_URL}/rss-articles/feed/${feedId}?skip=${skip}&limit=${limit}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API error: ${errorText}`);
+      throw new Error(`Failed to fetch articles for feed ${feedId}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error(`Error fetching articles for feed ${feedId}:`, error);
+    return []; // Return empty array on error
   }
-  return await response.json();
 }
 
 export async function fetchArticlesByCategory(categoryId, skip = 0, limit = 100) {
