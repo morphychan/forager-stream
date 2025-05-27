@@ -410,6 +410,7 @@
     border-right: 1px solid var(--color-border);
     padding: var(--spacing);
     overflow-y: auto;
+    overflow-x: hidden;
   }
   .main-content { flex: 1; display: flex; overflow: hidden; }
 

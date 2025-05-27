@@ -342,7 +342,7 @@
               Load More Articles
             </button>
             <div class="debug-info">
-              <small>Debug: categoryId={categoryId}, hasMore={hasMoreCategoryArticles}, page={categoryPage}</small>
+              <small>Debug: id={categoryId}, more={hasMoreCategoryArticles}, p={categoryPage}</small>
             </div>
           </div>
         {/if}
@@ -352,7 +352,7 @@
               Load More Articles
             </button>
             <div class="debug-info">
-              <small>Debug: feedId={feedId}, hasMore={hasMoreFeedArticles}, page={feedPage}</small>
+              <small>Debug: id={feedId}, more={hasMoreFeedArticles}, p={feedPage}</small>
             </div>
           </div>
         {/if}
@@ -406,6 +406,7 @@
     gap: 0.15rem;
     max-height: 80vh;
     overflow-y: auto;
+    overflow-x: hidden;
   }
   .article-item {
     padding: 0.3rem 0.7rem;
@@ -551,5 +552,9 @@
   .debug-info {
     margin-top: 0.5rem;
     color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
   }
 </style> 

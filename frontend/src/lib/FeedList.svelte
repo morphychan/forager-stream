@@ -181,6 +181,7 @@ const dispatch = createEventDispatcher();
   .feed-list {
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
     border-right: 1px solid var(--color-border);
     padding: 1.2rem 0.75rem 1.2rem 0.75rem;
     background: var(--color-surface);
@@ -287,7 +288,7 @@ const dispatch = createEventDispatcher();
     letter-spacing: 0.2px;
   }
 
-  /* Feed URL（如果没有title时显示） */
+  /* Display feed URL if no title is available */
   .feed-title:empty::before {
     content: attr(data-url);
     color: var(--color-text-secondary);
@@ -321,7 +322,7 @@ const dispatch = createEventDispatcher();
   /* Remove AddFeed button styles */
   @media (max-width: 700px) {
     .feed-list {
-      min-width: 100vw;
+      width: 100%;
       border-right: none;
       border-bottom: 1px solid var(--color-border);
       padding: 0.7rem 0.3rem;
@@ -352,6 +353,9 @@ const dispatch = createEventDispatcher();
     color: #4f8cff;
     font-weight: 600;
     transition: background 0.18s, color 0.18s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .category-item.selected {
     background: linear-gradient(90deg, #e3f0ff 60%, #f7fafd 100%);
