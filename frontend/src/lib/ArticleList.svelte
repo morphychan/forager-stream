@@ -58,7 +58,7 @@
   }
   
   // Use a simple approach for selectedArticleId
-  $: selectedArticleId = (selectedArticle && typeof selectedArticle === 'object' && 'id' in selectedArticle) ? selectedArticle.id : null;
+  $: selectedArticleId = selectedArticle ? selectedArticle.id : null;
   
   // Handle scroll to bottom for loading more articles
   function handleScroll(event) {
@@ -275,6 +275,7 @@
         bind:this={articleListContainer}
         tabindex="0"
         style="outline: none;"
+        on:scroll={handleScroll}
       >
         {#each allArticles as article (article.id)}
           <div 

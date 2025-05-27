@@ -189,10 +189,12 @@
 
 
 
-  function handleLoadMore() {
-    // Return a boolean indicating if more articles can be loaded
-    // If hasMore is false, it means we've loaded all articles
-    return hasMore ? loadAllArticles() : false;
+  async function handleLoadMore() {
+    // Load more articles if available
+    if (hasMore && !loading) {
+      console.log('Loading more all articles...');
+      await loadAllArticles();
+    }
   }
 
   onMount(async () => {
