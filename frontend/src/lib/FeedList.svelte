@@ -186,7 +186,7 @@ const dispatch = createEventDispatcher();
     background: var(--color-surface);
     font-family: var(--font-family);
     min-width: 160px;
-    max-width: 200px;
+    max-width: 240px;
   }
 
   .feed-header {
@@ -248,14 +248,15 @@ const dispatch = createEventDispatcher();
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.7rem;
+    gap: 0.2rem;
   }
 
   .feed-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.7rem 0.8rem;
+    padding: 0.08rem 0.8rem;
+    min-height: 1.5rem;
     background: #fff;
     border-radius: var(--radius);
     box-shadow: var(--shadow-elevation-1);
@@ -284,7 +285,8 @@ const dispatch = createEventDispatcher();
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 1rem;
+    font-size: 0.85rem;
+    line-height: 1.1;
     letter-spacing: 0.2px;
   }
 
@@ -293,7 +295,7 @@ const dispatch = createEventDispatcher();
     content: attr(data-url);
     color: var(--color-text-secondary);
     font-style: italic;
-    font-size: 0.98rem;
+    font-size: 0.85rem;
   }
 
   .delete-btn {
@@ -343,10 +345,10 @@ const dispatch = createEventDispatcher();
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0.2rem;
   }
   .category-item {
-    padding: 0.4rem 0.8rem;
+    padding: 0.2rem 0.8rem;
     border-radius: var(--radius);
     cursor: pointer;
     background: #f5f7fa;
@@ -356,7 +358,7 @@ const dispatch = createEventDispatcher();
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 1rem;
+    font-size: 0.85rem;
   }
   .category-item.selected {
     background: linear-gradient(90deg, #e3f0ff 60%, #f7fafd 100%);
