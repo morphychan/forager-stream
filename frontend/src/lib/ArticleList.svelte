@@ -374,7 +374,7 @@
     --radius: 12px;
     --font-size-lg: 1rem;
     --font-size-sm: 1rem;
-    --font-family: 'Segoe UI', 'PingFang SC', 'Hiragino Sans', Arial, sans-serif;
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'Helvetica Neue', Arial, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   }
 
   .article-container {
@@ -404,13 +404,13 @@
   .articles-list {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
+    gap: 0.1rem;
     max-height: 80vh;
     overflow-y: auto;
     overflow-x: hidden;
   }
   .article-item {
-    padding: 0.3rem 0.7rem;
+    padding: 0.2rem 0.6rem;
     background: #fff;
     border-radius: var(--radius);
     box-shadow: var(--shadow-elevation-1);
@@ -425,7 +425,7 @@
   .article-item:hover {
     box-shadow: var(--shadow-elevation-2);
     background: #f0f7ff;
-    transform: translateY(-2px) scale(1.02);
+    transform: scale(1.01);
   }
   .article-item.selected {
     background: linear-gradient(90deg, #e3f0ff 60%, #f7fafd 100%);
@@ -483,17 +483,17 @@
   }
   .article-date {
     color: var(--color-text-secondary);
-    font-size: 0.85rem;
+    font-size: 0.65rem;
     margin-left: 0.5em;
     white-space: nowrap;
     flex-shrink: 0;
   }
   .article-feed {
     color: var(--color-text-secondary);
-    font-size: 0.85rem;
+    font-size: 0.65rem;
     background: var(--color-border);
-    padding: 2px 6px;
-    border-radius: 4px;
+    padding: 1px 4px;
+    border-radius: 3px;
     white-space: nowrap;
     flex-shrink: 0;
     font-style: italic;

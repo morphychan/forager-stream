@@ -282,7 +282,7 @@
   -->
 
   <div class="layout">
-    <ResizablePanels leftMinWidth={180} rightMinWidth={400} initialLeftWidth={220}>
+    <ResizablePanels leftMinWidth={160} rightMinWidth={400} initialLeftWidth={180}>
       <div slot="left" class="sidebar">
         <FeedList on:select={handleFeedSelect} />
       </div>

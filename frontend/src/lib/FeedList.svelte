@@ -185,8 +185,8 @@ const dispatch = createEventDispatcher();
     padding: 1rem 0.6rem;
     background: var(--color-surface);
     font-family: var(--font-family);
-    min-width: 180px;
-    max-width: 300px;
+    min-width: 160px;
+    max-width: 200px;
   }
 
   .feed-header {
