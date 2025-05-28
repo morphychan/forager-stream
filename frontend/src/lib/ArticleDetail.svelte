@@ -103,32 +103,27 @@
   }
 
   .article-detail {
-    height: 100%;
-    overflow-y: auto;
-    padding: 2.2rem 2.5rem 2.2rem 2.5rem;
+    width: 100%;
+    padding: 1.5rem 1.8rem 1.5rem 1.8rem;
     background: var(--color-surface);
     font-family: var(--font-family);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     position: relative;
   }
   .article-header {
     width: 100%;
-    max-width: 820px;
-    margin-bottom: 2.2rem;
-    padding-bottom: 1.1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.8rem;
     border-bottom: 1.5px solid var(--color-border);
     background: #fff;
     border-radius: var(--radius) var(--radius) 0 0;
     box-shadow: var(--shadow-elevation-1);
-    padding-top: 1.2rem;
-    padding-left: 2rem;
-    padding-right: 2rem;
+    padding-top: 1rem;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
   }
   .article-header h1 {
-    margin: 0 0 1.1rem 0;
-    font-size: 1.7rem;
+    margin: 0 0 0.8rem 0;
+    font-size: 1.4rem;
     line-height: 1.3;
     color: var(--color-text-primary);
     font-weight: 700;
@@ -138,7 +133,7 @@
     display: flex;
     gap: 1.2rem;
     color: var(--color-text-secondary);
-    font-size: 1.01rem;
+    font-size: 0.85rem;
     margin-bottom: 0.5rem;
   }
   .article-link {
@@ -146,6 +141,7 @@
     color: #4f8cff;
     text-decoration: none;
     font-weight: 500;
+    font-size: 0.9rem;
     margin-top: 0.7rem;
     transition: color 0.18s;
   }
@@ -155,15 +151,14 @@
   }
   .article-content {
     width: 100%;
-    max-width: 820px;
     background: #fff;
     border-radius: 0 0 var(--radius) var(--radius);
     box-shadow: var(--shadow-elevation-1);
-    font-size: 1.08rem;
-    line-height: 1.7;
+    font-size: 0.95rem;
+    line-height: 1.6;
     color: #333;
-    padding: 2rem;
-    margin-bottom: 2.5rem;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
     min-height: 200px;
     word-break: break-word;
   }
@@ -184,7 +179,6 @@
     box-shadow: var(--shadow-elevation-1);
     margin: 2.5rem 0.5rem;
     width: 100%;
-    max-width: 700px;
   }
   .error {
     color: #dc3545;
@@ -233,30 +227,34 @@
     }
   }
   .close-btn {
-    position: absolute;
-    top: 1.2rem;
-    right: 1.2rem;
-    background: transparent;
-    border: none;
-    font-size: 1.3rem;
+    position: fixed;
+    top: 3rem;
+    right: 1.3rem;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid #e0e0e0;
+    font-size: 1.1rem;
     color: #888;
     cursor: pointer;
-    z-index: 20;
-    transition: color 0.18s, background 0.18s;
+    z-index: 1000;
+    transition: all 0.18s ease;
     border-radius: 50%;
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 1.6rem;
+    height: 1.6rem;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
     line-height: 1;
     text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
   }
   .close-btn:hover,
   .close-btn:focus {
     color: #fff;
     background: #dc3545;
+    border-color: #dc3545;
+    transform: scale(1.05);
     outline: none;
   }
 </style> 

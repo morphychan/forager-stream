@@ -378,7 +378,7 @@
   }
 
   .article-container {
-    padding: 1.2rem 1.2rem 1.2rem 1.2rem;
+    padding: 0.8rem 0.8rem 0.8rem 0.8rem;
     background: var(--color-surface);
     font-family: var(--font-family);
     font-size: 0.9rem;
