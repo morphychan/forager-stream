@@ -58,7 +58,7 @@
   }
   
   // Use a simple approach for selectedArticleId
-  $: selectedArticleId = selectedArticle ? selectedArticle.id : null;
+  $: selectedArticleId = selectedArticle?.id || null;
   
   // Handle scroll to bottom for loading more articles
   function handleScroll(event) {
@@ -381,7 +381,7 @@
     padding: 1.2rem 1.2rem 1.2rem 1.2rem;
     background: var(--color-surface);
     font-family: var(--font-family);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
   }
   
   .feed-header {
@@ -461,7 +461,7 @@
   }
   .article-title {
     margin: 0;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: var(--color-text-primary);
     letter-spacing: 0.2px;

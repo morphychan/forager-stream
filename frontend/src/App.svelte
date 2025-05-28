@@ -5,6 +5,7 @@
   import ArticleDetail from './lib/ArticleDetail.svelte';
   import HeadlineMarquee from './lib/HeadlineMarquee.svelte';
   import ResizablePanels from './lib/ResizablePanels.svelte';
+  import ArticleResizablePanels from './lib/ArticleResizablePanels.svelte';
   import { fetchFeeds, fetchArticlesByCategory } from './lib/api';
 
   let selectedFeedId = null;
@@ -286,27 +287,34 @@
       <div slot="left" class="sidebar">
         <FeedList on:select={handleFeedSelect} />
       </div>
-      <div slot="right" class="main-content {selectedArticle ? 'with-detail' : ''}">
-        <div class="article-list">
-          <ArticleList
-            feedId={selectedFeedId}
-            categoryId={selectedCategoryId}
-            allArticles={allArticles}
-            paused={!!selectedArticle}
-            selectedArticle={selectedArticle}
-            feedMap={feedMap}
-            on:select={handleArticleSelect}
-            on:loadMore={handleLoadMore}
-          />
-          {#if loading && page > 0}
-            <div class="loading-more">Loading more articles...</div>
-          {/if}
-        </div>
-        {#if selectedArticle}
-          <div class="article-detail">
-            <ArticleDetail article={selectedArticle} on:close={() => selectedArticle = null} />
+      <div slot="right" class="main-content">
+        <ArticleResizablePanels 
+          leftMinWidth={300} 
+          rightMinWidth={400} 
+          initialLeftWidth={400}
+          showDetail={!!selectedArticle}
+        >
+          <div slot="left" class="article-list">
+            <ArticleList
+              feedId={selectedFeedId}
+              categoryId={selectedCategoryId}
+              allArticles={allArticles}
+              paused={!!selectedArticle}
+              selectedArticle={selectedArticle}
+              feedMap={feedMap}
+              on:select={handleArticleSelect}
+              on:loadMore={handleLoadMore}
+            />
+            {#if loading && page > 0}
+              <div class="loading-more">Loading more articles...</div>
+            {/if}
           </div>
-        {/if}
+          <div slot="right" class="article-detail">
+            {#if selectedArticle}
+              <ArticleDetail article={selectedArticle} on:close={() => selectedArticle = null} />
+            {/if}
+          </div>
+        </ArticleResizablePanels>
       </div>
     </ResizablePanels>
   </div>
@@ -413,18 +421,17 @@
     overflow-y: auto;
     overflow-x: hidden;
   }
-  .main-content { flex: 1; display: flex; overflow: hidden; }
+  .main-content { flex: 1; overflow: hidden; }
 
   .article-list,
   .article-detail {
     background: var(--color-surface);
-    margin: var(--spacing);
     border-radius: var(--radius);
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    /* overflow-y: auto; */
+    height: 100%;
   }
-  .article-list { width: 320px; padding: var(--spacing); }
-  .article-detail { flex: 1; padding: var(--spacing); }
+  .article-list { padding: var(--spacing); }
+  .article-detail { padding: var(--spacing); }
 
   .skeleton-marquee {
     height: 2rem;
@@ -442,13 +449,7 @@
     .article-detail { margin: var(--spacing) 0; }
   }
 
-  /* dynamic two/three column switch */
-  .main-content:not(.with-detail) .article-list {
-    width: 100%;
-  }
-  .main-content:not(.with-detail) .article-detail {
-    display: none;
-  }
+  /* These styles are now handled by ArticleResizablePanels component */
 
   .loading-more {
     text-align: center;

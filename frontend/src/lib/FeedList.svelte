@@ -358,7 +358,7 @@ const dispatch = createEventDispatcher();
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: 0.85rem;
+    font-size: 1rem;
   }
   .category-item.selected {
     background: linear-gradient(90deg, #e3f0ff 60%, #f7fafd 100%);
