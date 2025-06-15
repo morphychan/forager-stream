@@ -1,0 +1,119 @@
+"""
+CLI subcommands related to RSS operations.
+"""
+from pathlib import Path
+from typing import Optional
+from forager.input.rss import RSSFetcher
+from forager.input.rss_presenter import RSSPresenter
+from forager.storage.sqlite import SQLiteStorage
+from forager.config.manager import ConfigManager, ConfigError
+import typer
+
+app = typer.Typer(
+    name="rss",
+    help="RSS feed operations and management.",
+    no_args_is_help=True,
+)
+
+@app.command("fetch")
+def fetch(
+    url: Optional[str] = typer.Argument(
+        None, help="RSS feed URL to fetch. If omitted, load from config."
+    ),
+    config_path: Path = typer.Option(
+        Path("config/subscriptions.yaml"),
+        "--config",
+        "-c",
+        help="Path to subscriptions YAML file.",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+    ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        "-d",
+        help="Use debug mode to show detailed information during fetching.",
+    ),
+) -> None:
+    """
+    Fetch and store RSS feeds.
+    """
+    storage = SQLiteStorage(Path("data/forager.db"))
+    try:
+        if url:
+            # Process single feed
+            try:
+                fetcher = RSSFetcher(url, storage, debug=debug)
+                article_count = fetcher.process_feed(url, 3600)  # Default 1 hour interval
+                if article_count > 0:
+                    typer.echo(f"[INFO] Saved {article_count} articles from {url}")
+                else:
+                    typer.echo(f"[WARNING] No new articles found in {url}")
+            except Exception as e:
+                typer.echo(f"[ERROR] Failed to process feed {url}: {e}")
+        else:
+            # Process all feeds from config
+            if debug:
+                typer.echo("[INFO] Debug mode active - detailed information will be shown")
+            
+            results = RSSFetcher.process_feeds_from_config(config_path, storage, debug=debug)
+            
+            # Display results
+            for feed_url, count in results.items():
+                if count > 0:
+                    typer.echo(f"[INFO] Saved {count} articles from {feed_url}")
+                elif count == 0:
+                    typer.echo(f"[WARNING] No new articles found in {feed_url}")
+                else:
+                    typer.echo(f"[ERROR] Failed to process feed {feed_url}")
+    finally:
+        storage.close()
+
+@app.command("test")
+def test(
+    url: Optional[str] = typer.Argument(
+        None, help="RSS feed URL to test. If omitted, test all feeds from config."
+    ),
+    config_path: Path = typer.Option(
+        Path("config/subscriptions.yaml"),
+        "--config",
+        "-c",
+        help="Path to subscriptions YAML file.",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+    ),
+    debug: bool = typer.Option(
+        False,
+        "--debug",
+        "-d",
+        help="Use debug mode to show detailed information during testing.",
+    ),
+) -> None:
+    """
+    Test RSS feeds without storing to database (dry run).
+    """
+    if url:
+        try:
+            fetcher = RSSFetcher(url, debug=debug)
+            presenter = RSSPresenter(fetcher)
+            presenter.print_feed_summary()
+        except Exception as e:
+            typer.echo(f"[ERROR] Failed to fetch RSS feed {url}: {e}")
+    else:
+        # Process all feeds from config
+        try:
+            config_manager = ConfigManager(config_path)
+            urls = config_manager.get_feed_urls()
+            for url in urls:
+                try:
+                    fetcher = RSSFetcher(url, debug=debug)
+                    presenter = RSSPresenter(fetcher)
+                    presenter.print_feed_summary()
+                except Exception as e:
+                    typer.echo(f"[ERROR] Failed to fetch RSS feed {url}: {e}")
+                    continue
+        except ConfigError as e:
+            typer.echo(f"[ERROR] {e}")
+            raise typer.Exit(code=1) 
